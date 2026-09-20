@@ -225,6 +225,34 @@ select {
     text-transform: uppercase;
 }
 
+/* ============================================================
+   LES KLEUREN
+   ============================================================ */
+
+.card-crossfit {
+    border-left-color: #8bc34a;
+}
+
+.card-endurance-class {
+    border-left-color: #f0b429;
+}
+
+.card-bags {
+    border-left-color: #9b59b6;
+}
+
+.card-olympic-weightlifting {
+    border-left-color: #3498db;
+}
+
+.card-strongfit {
+    border-left-color: #ef4444;
+}
+
+.card-hyrox {
+    border-left-color: #991b1b;
+}
+
 .schedule {
     margin-top: 8px;
 

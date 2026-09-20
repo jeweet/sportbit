@@ -18,7 +18,7 @@
 
 {% for item in inschrijvingen %}
 
-<section class="card">
+<section class="card card-{{ item.les|lower|replace(' ', '-') }}">
 
     <div class="card-header">
 

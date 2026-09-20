@@ -1,8 +1,10 @@
 # Go Personal · SportBit
 
-Een kleine Flask-webapp voor het automatisch beheren en uitvoeren van SportBit-inschrijvingen voor CrossFit Go Personal.
+Een Flask-webapp voor het automatisch beheren en uitvoeren van SportBit-inschrijvingen voor CrossFit Go Personal.
 
 De applicatie houdt geconfigureerde lessen bij, controleert de eerstvolgende lessen in SportBit en kan automatisch proberen in te schrijven zodra de inschrijving opent. Bij bepaalde problemen kan een e-mailnotificatie worden verstuurd.
+
+![Screenshot](Screenshot.png)
 
 ---
 
@@ -286,11 +288,9 @@ Je hebt nodig:
 ## Repository clonen
 
 ```bash
-git clone https://github.com/USERNAME/REPOSITORY.git
+git clone https://github.com/jeweet/sportbit.git
 cd REPOSITORY
 ```
-
-Vervang `USERNAME/REPOSITORY` door de daadwerkelijke GitHub-repository.
 
 ---
 

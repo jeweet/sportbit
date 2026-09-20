@@ -19,6 +19,7 @@ from sportbit_events import (
 from sportbit_state import (
     run_lock,
     set_last_output,
+    next_lessons_cache,
     statuses,
 )
 
@@ -60,6 +61,13 @@ def vernieuw_status(
     )
 
     statuses[section] = status
+
+    # Oude lessen-cache wissen zodat de homepage
+    # direct de actuele status gebruikt.
+    next_lessons_cache.pop(
+        section,
+        None,
+    )
 
     print(
         "Status bijgewerkt: "

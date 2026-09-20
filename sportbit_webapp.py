@@ -579,10 +579,35 @@ def nieuwe_inschrijving():
 
         schrijf_config(config)
 
-        flash(
-            "Inschrijving toegevoegd.",
-            "success",
-        )
+        try:
+
+            resultaat = voer_inschrijving_uit(
+                section
+            )
+
+            if resultaat:
+
+                flash(
+                    "Les toegevoegd en direct ingeschreven.",
+                    "success",
+                )
+
+            else:
+
+                flash(
+                    "Les toegevoegd. Inschrijven is momenteel "
+                    "nog niet mogelijk; de automatische inschrijving "
+                    "blijft actief.",
+                    "success",
+                )
+
+        except Exception as error:
+
+            flash(
+                "Les toegevoegd, maar direct inschrijven "
+                f"mislukte: {error}",
+                "error",
+            )
 
         return redirect(
             url_for("index")

@@ -60,8 +60,12 @@
         <input
             id="tijd"
             name="tijd"
-            type="time"
+            type="text"
             value="{{ item.tijd }}"
+            placeholder="09:00"
+            pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+            maxlength="5"
+            inputmode="numeric"
             required
         >
 

@@ -1,0 +1,49 @@
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 520 130"
+    role="img"
+    aria-label="CrossFit Go Personal"
+>
+    <style>
+        .crossfit {
+            fill: #ffffff;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+
+        .main {
+            fill: #ffffff;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: 900;
+            letter-spacing: -3px;
+        }
+
+        .accent {
+            fill: #8bc34a;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: 900;
+            letter-spacing: -2px;
+        }
+    </style>
+
+    <text x="8" y="31" class="crossfit" font-size="22">
+        CROSSFIT
+    </text>
+
+    <text x="5" y="82" class="main" font-size="55">
+        GO
+    </text>
+
+    <text x="102" y="82" class="accent" font-size="55">
+        PERSONAL
+    </text>
+
+    <rect
+        x="7"
+        y="96"
+        width="500"
+        height="5"
+        fill="#8bc34a"
+    />
+</svg>

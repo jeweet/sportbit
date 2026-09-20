@@ -1,0 +1,190 @@
+<!doctype html>
+
+<html lang="nl">
+
+<head>
+
+    <meta charset="utf-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <meta
+        name="theme-color"
+        content="#080808"
+    >
+
+    <link
+        rel="manifest"
+        href="{{ url_for('static', filename='manifest.json') }}"
+    >
+
+    <link
+        rel="icon"
+        type="image/svg+xml"
+        href="{{ url_for('static', filename='icon.svg') }}"
+    >
+
+    <meta
+        name="mobile-web-app-capable"
+        content="yes"
+    >
+
+    <meta
+        name="apple-mobile-web-app-capable"
+        content="yes"
+    >
+
+    <meta
+        name="apple-mobile-web-app-status-bar-style"
+        content="black"
+    >
+
+    <meta
+        name="apple-mobile-web-app-title"
+        content="SportBit"
+    >
+
+    <title>
+        Go Personal · SportBit
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/sportbit.css') }}"
+    >
+
+</head>
+
+
+<body class="{% if request.endpoint == 'login' %}login-body{% endif %}">
+
+{% if request.endpoint != "login" %}
+
+<header class="header">
+
+    <div class="header-inner">
+
+        <a
+            href="{{ url_for('index') }}"
+            class="logo-link"
+            aria-label="CrossFit Go Personal"
+        >
+            <img
+               class="logo"
+               src="{{ url_for('static', filename='images/logo.svg') }}"
+               alt="CrossFit Go Personal"
+            >
+
+        </a>
+
+        <div class="header-title">
+            Automatische inschrijving
+        </div>
+
+
+        <button
+            type="button"
+            class="menu-toggle"
+            id="menuToggle"
+            aria-label="Menu openen"
+            aria-expanded="false"
+            aria-controls="mobileMenu"
+        >
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
+    </div>
+
+
+    <nav
+        class="mobile-menu"
+        id="mobileMenu"
+        aria-hidden="true"
+    >
+
+        <a
+            href="{{ url_for('nieuwe_inschrijving') }}"
+            class="mobile-menu-item mobile-menu-primary"
+        >
+            <span class="mobile-menu-icon">+</span>
+            <span>Toevoegen</span>
+        </a>
+
+        <a
+            href="{{ url_for('instellingen') }}"
+            class="mobile-menu-item"
+        >
+            <span class="mobile-menu-icon">⚙</span>
+            <span>Instellingen</span>
+        </a>
+
+        <a
+            href="{{ url_for('documentatie') }}"
+            class="mobile-menu-item"
+        >
+            <span class="mobile-menu-icon">?</span>
+            <span>Uitleg</span>
+        </a>
+
+
+        <a
+            href="{{ url_for('log') }}"
+            class="mobile-menu-item"
+        >
+            <span class="mobile-menu-icon">≡</span>
+            <span>Logbestand</span>
+        </a>
+        <a
+            href="{{ url_for('logout') }}"
+            class="mobile-menu-item"
+        >
+            <span class="mobile-menu-icon">↪</span>
+            <span>Uitloggen</span>
+        </a>
+
+    </nav>
+
+</header>
+
+{% endif %}
+
+<main class="container">
+
+    {% with messages = get_flashed_messages(
+        with_categories=true
+    ) %}
+
+        {% if messages %}
+
+            {% for category, message in messages %}
+
+                <div
+                    class="alert alert-{{ category }}"
+                >
+                    {{ message }}
+                </div>
+
+            {% endfor %}
+
+        {% endif %}
+
+    {% endwith %}
+
+
+    {% block content %}{% endblock %}
+
+</main>
+
+
+<script
+    src="{{ url_for('static', filename='js/sportbit.js') }}"
+></script>
+
+</body>
+
+</html>

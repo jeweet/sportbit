@@ -464,6 +464,65 @@ def inschrijven(session, event):
     return False
 
 
+
+
+def uitschrijven(session, event):
+    """Schrijf de gebruiker uit voor het event."""
+
+    event_id = event.get("id")
+
+    if not event_id:
+        raise RuntimeError("Event heeft geen ID.")
+
+    url = f"{EVENTS_URL}{event_id}/deelname/"
+
+    # Gebruik altijd de meest recente XSRF-token uit de cookies.
+    xsrf = session.cookies.get("XSRF-TOKEN")
+
+    if not xsrf:
+        raise RuntimeError(
+            "Geen XSRF-TOKEN aanwezig vóór uitschrijf-DELETE."
+        )
+
+    print()
+    print(
+        f"Uitschrijven voor '{event.get('titel')}' "
+        f"(ID {event_id})..."
+    )
+
+    response = session.delete(
+        url,
+        headers={
+            "X-XSRF-TOKEN": xsrf,
+            "Origin": BASE_URL,
+            "Referer": f"{BASE_URL}/web/nl/",
+            "Accept": "application/json, text/plain, */*",
+        },
+        timeout=15,
+    )
+
+    if response.status_code == 204:
+        print("Succesvol uitgeschreven!")
+        return True
+
+    if response.status_code == 200:
+        print("Uitschrijving geaccepteerd (HTTP 200).")
+        return True
+
+    print(
+        f"Uitschrijven mislukt: HTTP {response.status_code}"
+    )
+
+    if response.text:
+        print(response.text[:1000])
+
+    return False
+
+
+
+
+
+
 def verwerk_inschrijving(session, inschrijving):
     """Verwerk één inschrijving uit de configuratie."""
 

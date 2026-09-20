@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-title">
+
+    <h1>Instellingen</h1>
+
+    <p>
+        SportBit en e-mailnotificaties
+    </p>
+
+</div>
+
+
+<form method="post">
+
+    <section class="card settings-card">
+
+
+        <!-- ==================================================
+             WEB LOGIN
+             ================================================== -->
+
+<div class="settings-section">
+
+    <h2>Webapp login</h2>
+
+    <p class="settings-description">
+        Gebruikersnaam en wachtwoord voor toegang tot deze SportBit-webapp.
+    </p>
+
+
+    <label for="WEB_USERNAME">
+        Gebruikersnaam
+    </label>
+
+    <input
+        id="WEB_USERNAME"
+        name="WEB_USERNAME"
+        type="text"
+        value="{{ settings.WEB_USERNAME }}"
+        autocomplete="username"
+        required
+    >
+
+
+    <label for="WEB_PASSWORD">
+        Wachtwoord
+    </label>
+
+    <input
+        id="WEB_PASSWORD"
+        name="WEB_PASSWORD"
+        type="password"
+        value=""
+        placeholder="{{ settings.WEB_PASSWORD_PLACEHOLDER }}"
+        autocomplete="new-password"
+    >
+
+    <p class="hint">
+        Laat leeg om het huidige wachtwoord te behouden.
+    </p>
+
+</div>
+
+
+
+        <!-- ==================================================
+             SPORTBIT
+             ================================================== -->
+
+        <div class="settings-section">
+
+            <h2>SportBit</h2>
+
+            <p class="settings-description">
+                Inloggegevens voor SportBit.
+            </p>
+
+
+            <label for="SPORTBIT_USERNAME">
+                Gebruikersnaam
+            </label>
+
+            <input
+                id="SPORTBIT_USERNAME"
+                name="SPORTBIT_USERNAME"
+                type="text"
+                value="{{ settings.SPORTBIT_USERNAME }}"
+                autocomplete="username"
+            >
+
+
+            <label for="SPORTBIT_PASSWORD">
+                Wachtwoord
+            </label>
+
+            <input
+                id="SPORTBIT_PASSWORD"
+                name="SPORTBIT_PASSWORD"
+                type="password"
+                value=""
+                placeholder="{{ settings.SPORTBIT_PASSWORD_PLACEHOLDER }}"
+                autocomplete="new-password"
+            >
+
+            <p class="hint">
+                Laat leeg om het huidige wachtwoord te behouden.
+            </p>
+
+        </div>
+
+
+        <!-- ==================================================
+             NOTIFICATIES
+             ================================================== -->
+
+        <div class="settings-section">
+
+            <h2>Notificaties</h2>
+
+            <p class="settings-description">
+                Instellingen voor e-mailmeldingen.
+            </p>
+
+
+            <label for="NOTIFY_ENABLED">
+                Notificaties
+            </label>
+
+            <select
+                id="NOTIFY_ENABLED"
+                name="NOTIFY_ENABLED"
+            >
+
+                <option
+                    value="true"
+                    {% if settings.NOTIFY_ENABLED == "true" %}
+                        selected
+                    {% endif %}
+                >
+                    Ingeschakeld
+                </option>
+
+                <option
+                    value="false"
+                    {% if settings.NOTIFY_ENABLED == "false" %}
+                        selected
+                    {% endif %}
+                >
+                    Uitgeschakeld
+                </option>
+
+            </select>
+
+
+            <label for="NOTIFY_EMAIL_TO">
+                E-mailadres ontvanger
+            </label>
+
+            <input
+                id="NOTIFY_EMAIL_TO"
+                name="NOTIFY_EMAIL_TO"
+                type="email"
+                value="{{ settings.NOTIFY_EMAIL_TO }}"
+                placeholder="naam@example.com"
+            >
+
+        </div>
+
+
+        <!-- ==================================================
+             SMTP
+             ================================================== -->
+
+        <div class="settings-section">
+
+            <h2>SMTP</h2>
+
+            <p class="settings-description">
+                Server waarmee notificatiemails worden verstuurd.
+            </p>
+
+
+            <label for="SMTP_HOST">
+                SMTP-server
+            </label>
+
+            <input
+                id="SMTP_HOST"
+                name="SMTP_HOST"
+                type="text"
+                value="{{ settings.SMTP_HOST }}"
+                placeholder="smtp.example.com"
+            >
+
+
+            <label for="SMTP_PORT">
+                SMTP-poort
+            </label>
+
+            <input
+                id="SMTP_PORT"
+                name="SMTP_PORT"
+                type="number"
+                value="{{ settings.SMTP_PORT }}"
+                min="1"
+                max="65535"
+            >
+
+
+            <label for="SMTP_USERNAME">
+                SMTP-gebruikersnaam
+            </label>
+
+            <input
+                id="SMTP_USERNAME"
+                name="SMTP_USERNAME"
+                type="text"
+                value="{{ settings.SMTP_USERNAME }}"
+                autocomplete="username"
+            >
+
+
+            <label for="SMTP_PASSWORD">
+                SMTP-wachtwoord
+            </label>
+
+            <input
+                id="SMTP_PASSWORD"
+                name="SMTP_PASSWORD"
+                type="password"
+                value=""
+                placeholder="{{ settings.SMTP_PASSWORD_PLACEHOLDER }}"
+                autocomplete="new-password"
+            >
+
+            <p class="hint">
+                Laat leeg om het huidige wachtwoord te behouden.
+            </p>
+
+
+            <label for="SMTP_USE_TLS">
+                TLS-beveiliging
+            </label>
+
+            <select
+                id="SMTP_USE_TLS"
+                name="SMTP_USE_TLS"
+            >
+
+                <option
+                    value="true"
+                    {% if settings.SMTP_USE_TLS == "true" %}
+                        selected
+                    {% endif %}
+                >
+                    Ingeschakeld
+                </option>
+
+                <option
+                    value="false"
+                    {% if settings.SMTP_USE_TLS == "false" %}
+                        selected
+                    {% endif %}
+                >
+                    Uitgeschakeld
+                </option>
+
+            </select>
+
+
+            <label for="NOTIFY_FROM">
+                Afzender e-mail
+            </label>
+
+            <input
+                id="NOTIFY_FROM"
+                name="NOTIFY_FROM"
+                type="email"
+                value="{{ settings.NOTIFY_FROM }}"
+                placeholder="sportbit@example.com"
+            >
+
+        </div>
+
+
+        <!-- ==================================================
+             OPSLAAN
+             ================================================== -->
+
+        <div class="form-actions">
+
+            <a
+                href="{{ url_for('index') }}"
+                class="button"
+            >
+                Annuleren
+            </a>
+
+            <button
+                type="submit"
+                class="button button-primary"
+            >
+                Instellingen opslaan
+            </button>
+
+        </div>
+
+    </section>
+
+</form>
+
+
+<!-- ============================================================
+     TESTMAIL
+     ============================================================ -->
+
+<section class="card settings-testmail">
+
+    <div class="settings-testmail-content">
+
+        <div>
+
+            <h2>Testmail</h2>
+
+            <p>
+                Controleer of de huidige SMTP-instellingen
+                correct werken.
+            </p>
+
+        </div>
+
+
+        <form
+            method="post"
+            action="{{ url_for('testmail') }}"
+        >
+
+            <button
+                type="submit"
+                class="button button-testmail"
+            >
+                ✉ Testmail versturen
+            </button>
+
+        </form>
+
+    </div>
+
+</section>
+
+{% endblock %}

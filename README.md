@@ -4,7 +4,7 @@ Een Flask-webapp voor het automatisch beheren en uitvoeren van SportBit-inschrij
 
 De applicatie houdt geconfigureerde lessen bij, controleert de eerstvolgende lessen in SportBit en kan automatisch proberen in te schrijven zodra de inschrijving opent. Bij bepaalde problemen kan een e-mailnotificatie worden verstuurd.
 
-![Screenshot](Screenshot.png)
+![Screenshot](screenshot.png)
 
 ---
 

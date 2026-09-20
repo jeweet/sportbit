@@ -453,18 +453,24 @@ def uitschrijven(section, datum):
             datum=les_datum,
         )
 
+
         if resultaat:
 
+    # Verwijder de oude runtime-status en cache.
+    # Bij de redirect naar de index wordt de actuele
+    # SportBit-status daardoor opnieuw gecontroleerd.
+            clear_section(section)
+
             flash(
-                "Je bent uitgeschreven voor deze les.",
-                "success",
+                  "Je bent uitgeschreven voor deze les.",
+                   "success",
             )
 
         else:
 
             flash(
-                "Uitschrijven mislukt.",
-                "error",
+                  "Uitschrijven mislukt.",
+                  "error",
             )
 
     except Exception as error:

@@ -18,19 +18,50 @@ from sportbit_state import (
 
 
 def extract_events(data):
-    """Haal een lijst met event-dictionaries uit een SportBit-response."""
+    """Haal alle event-dictionaries uit een SportBit-response.
 
-    if isinstance(data, list):
+    Alle relevante eventlijsten worden samengevoegd.
+    De functie stopt dus niet bij alleen de eerste lijst
+    (bijvoorbeeld alleen 'ochtend').
+    """
 
-        if all(
-            isinstance(x, dict)
-            for x in data
-        ):
-            return data
+    events = []
 
-    if isinstance(data, dict):
+    def toevoegen(value):
+        if not isinstance(value, list):
+            return
 
-        mogelijke_keys = (
+        for item in value:
+
+            if not isinstance(item, dict):
+                continue
+
+            # Een event herkennen aan typische eventvelden.
+            if (
+                "start" in item
+                or "titel" in item
+                or "id" in item
+            ):
+                events.append(item)
+
+    def doorzoek(value):
+
+        if isinstance(value, list):
+
+            toevoegen(value)
+
+            # Voor de zekerheid ook dieper zoeken.
+            for item in value:
+                if isinstance(item, (dict, list)):
+                    doorzoek(item)
+
+            return
+
+        if not isinstance(value, dict):
+            return
+
+        # Bekende eventcontainers eerst behandelen.
+        for key in (
             "events",
             "data",
             "items",
@@ -39,31 +70,49 @@ def extract_events(data):
             "ochtend",
             "middag",
             "avond",
-        )
+        ):
 
-        for key in mogelijke_keys:
+            if key in value:
+                doorzoek(value[key])
 
-            value = data.get(key)
+        # Daarna ook alle overige velden doorzoeken.
+        for key, nested in value.items():
 
-            if isinstance(value, list):
+            if key in (
+                "events",
+                "data",
+                "items",
+                "result",
+                "results",
+                "ochtend",
+                "middag",
+                "avond",
+            ):
+                continue
 
-                if all(
-                    isinstance(x, dict)
-                    for x in value
-                ):
-                    return value
+            if isinstance(nested, (dict, list)):
+                doorzoek(nested)
 
-        # Eén niveau dieper zoeken.
-        for value in data.values():
+    doorzoek(data)
 
-            if isinstance(value, dict):
+    # Dubbele events verwijderen.
+    unieke_events = []
+    bekende_ids = set()
 
-                nested = extract_events(value)
+    for event in events:
 
-                if nested is not None:
-                    return nested
+        event_id = event.get("id")
 
-    return None
+        if event_id is not None:
+
+            if event_id in bekende_ids:
+                continue
+
+            bekende_ids.add(event_id)
+
+        unieke_events.append(event)
+
+    return unieke_events
 
 
 def zoek_event(
@@ -189,17 +238,20 @@ def bepaal_event_status(event, datum):
             "GEEN EVENT",
         )
 
-    if event.get("aangemeld"):
-        return maak_status(
-            "ingeschreven",
-            "INGESCHREVEN",
-            event,
-        )
-
+    # SportBit kan iemand op de wachtlijst zowel als
+    # 'aangemeld' als 'opWachtlijst' teruggeven.
+    # De wachtlijst heeft dan voorrang.
     if event.get("opWachtlijst"):
         return maak_status(
             "wachtlijst",
             "WACHTLIJST",
+            event,
+        )
+
+    if event.get("aangemeld"):
+        return maak_status(
+            "ingeschreven",
+            "INGESCHREVEN",
             event,
         )
 

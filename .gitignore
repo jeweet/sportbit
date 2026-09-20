@@ -1,0 +1,10 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+
+notify_state.json
+sportbit.conf
+
+*.log
+.DS_Store

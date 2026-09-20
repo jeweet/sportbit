@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 512 512">
+
+    <rect width="512" height="512" rx="96" fill="#080808"/>
+
+    <rect
+        x="56"
+        y="365"
+        width="400"
+        height="18"
+        rx="9"
+        fill="#8bc34a"
+    />
+
+    <text
+        x="256"
+        y="285"
+        text-anchor="middle"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="150"
+        font-weight="900"
+        letter-spacing="-10"
+        fill="#ffffff">
+        GO
+    </text>
+
+    <text
+        x="256"
+        y="340"
+        text-anchor="middle"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="62"
+        font-weight="900"
+        letter-spacing="-3"
+        fill="#8bc34a">
+        PERSONAL
+    </text>
+
+</svg>

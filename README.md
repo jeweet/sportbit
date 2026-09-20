@@ -351,8 +351,11 @@ Gevoelige gegevens zoals login- en SMTP-instellingen horen in `.env`.
 Voorbeeld:
 
 ```dotenv
-SPORTBIT_USERNAME=jouw_gebruikersnaam
-SPORTBIT_PASSWORD=jouw_wachtwoord
+WEB_USERNAME=jouw_gebruikersnaam
+WEB_PASSWORD=jouw_wachtwoord
+
+SPORTBIT_USERNAME=jouw_crossfit_gebruikersnaam
+SPORTBIT_PASSWORD=jouw_crossfit_wachtwoord
 
 FLASK_SECRET_KEY=vervang-dit-door-een-lange-willekeurige-string
 
@@ -363,8 +366,6 @@ SMTP_PASSWORD=jouw-smtp-wachtwoord
 SMTP_FROM=jouw-email@example.com
 SMTP_TO=jouw-email@example.com
 ```
-
-De exacte variabelen zijn afhankelijk van de implementatie van `sportbit2.py` en `notify.py`.
 
 > **Let op:** commit nooit je echte `.env` naar GitHub.
 

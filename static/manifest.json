@@ -11,7 +11,7 @@
     "lang": "nl-NL",
     "icons": [
         {
-            "src": "/static/icon.svg",
+            "src": "/static/images/icon.svg",
             "sizes": "any",
             "type": "image/svg+xml",
             "purpose": "any maskable"

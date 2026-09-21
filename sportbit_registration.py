@@ -3,7 +3,7 @@
 import io
 from contextlib import redirect_stdout
 
-import sportbit2
+import sportbit_api
 import notify
 
 from sportbit_config import lees_config_parser
@@ -16,6 +16,8 @@ from sportbit_events import (
     bepaal_event_status,
     zoek_event,
 )
+from sportbit_automation_state import markeer_handmatig_overgeslagen
+
 from sportbit_state import (
     run_lock,
     set_last_output,
@@ -149,9 +151,9 @@ def voer_inschrijving_uit(section):
                 )
                 print()
 
-                session = sportbit2.create_session()
+                session = sportbit_api.create_session()
 
-                sportbit2.login(session)
+                sportbit_api.login(session)
 
                 event = zoek_event(
                     session=session,
@@ -214,7 +216,7 @@ def voer_inschrijving_uit(section):
                 else:
 
                     resultaat = (
-                        sportbit2.inschrijven(
+                        sportbit_api.inschrijven(
                             session,
                             event,
                         )
@@ -343,9 +345,9 @@ def uitschrijven_les(
                 )
                 print()
 
-                session = sportbit2.create_session()
+                session = sportbit_api.create_session()
 
-                sportbit2.login(session)
+                sportbit_api.login(session)
 
                 event = zoek_event(
                     session=session,
@@ -401,7 +403,7 @@ def uitschrijven_les(
                 else:
 
                     resultaat = (
-                        sportbit2.uitschrijven(
+                        sportbit_api.uitschrijven(
                             session,
                             event,
                         )
@@ -416,6 +418,16 @@ def uitschrijven_les(
 
                 print(
                     "\nUitschrijving succesvol."
+                )
+
+                # Een handmatige uitschrijving geldt alleen voor deze
+                # concrete doel-les. De scheduler mag deze les dus niet
+                # later opnieuw automatisch inschrijven.
+                markeer_handmatig_overgeslagen(
+                    section=section,
+                    datum=datum,
+                    les=les,
+                    tijd=tijd,
                 )
 
                 # Direct na de DELETE de actuele status

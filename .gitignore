@@ -8,3 +8,5 @@ sportbit.conf
 
 *.log
 .DS_Store
+
+.sportbit_automation_state.json

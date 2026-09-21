@@ -132,31 +132,22 @@ def eerstvolgende_dag(dag_nummer):
 
 
 def doel_datum_en_tijd(inschrijving):
-    """
-    Bepaal de eerstvolgende datum/tijd voor een inschrijving.
-    """
-
     nu = datetime.now(TIMEZONE)
-
     dag_nummer = inschrijving["dag_nummer"]
     tijd = inschrijving["tijd"]
 
-    dagen_tot_dag = (
-        dag_nummer - nu.weekday()
-    ) % 7
-
-    doel_datum = nu.date() + timedelta(
-        days=dagen_tot_dag
-    )
+    dagen_tot_dag = (dag_nummer - nu.weekday()) % 7
+    doel_datum = nu.date() + timedelta(days=dagen_tot_dag)
 
     doel_datetime = datetime.combine(
         doel_datum,
         tijd,
-        tzinfo=TIMEZONE,
+        tzinfo=TIMEZONE
     )
 
-    # Als de les vandaag al voorbij is, neem volgende week.
-    if doel_datetime <= nu:
+    # Als de gewenste les vandaag is, bedoelen we de eerstvolgende
+    # keer dat deze les beschikbaar komt: volgende week.
+    if doel_datum == nu.date():
         doel_datetime += timedelta(days=7)
 
     return doel_datetime
@@ -629,16 +620,21 @@ def verwerk_inschrijving(session, inschrijving):
     )
 
 
-def main():
+def run_once():
+    """
+    Voer één volledige SportBit-inschrijfronde uit.
+
+    Geeft True terug als alles goed is gegaan.
+    Geeft False terug als één of meer inschrijvingen
+    of de login mislukt.
+    """
+
     load_dotenv(
-        Path(__file__).resolve().parent / ".env"
+        Path(__file__).resolve().parent / ".env",
+        override=True,
     )
 
-    try:
-        inschrijvingen = laad_config()
-    except Exception as error:
-        print(f"Configuratiefout: {error}")
-        sys.exit(1)
+    inschrijvingen = laad_config()
 
     print("=" * 50)
     print("SportBit automatische inschrijving")
@@ -649,7 +645,9 @@ def main():
 
     for inschrijving in inschrijvingen:
 
-        doel = doel_datum_en_tijd(inschrijving)
+        doel = doel_datum_en_tijd(
+            inschrijving
+        )
 
         print(
             f"  {inschrijving['naam']}: "
@@ -662,10 +660,6 @@ def main():
     session = create_session()
 
     try:
-
-        # -----------------------------------------------------
-        # Eén keer inloggen; daarna alle inschrijvingen verwerken.
-        # -----------------------------------------------------
 
         login(session)
 
@@ -687,42 +681,57 @@ def main():
 
                 fouten += 1
 
-                print()
                 print(
                     f"HTTP-fout bij "
-                    f"{inschrijving['naam']}: {error}"
+                    f"{inschrijving['naam']}: "
+                    f"{error}"
                 )
 
             except Exception as error:
 
                 fouten += 1
 
-                print()
                 print(
                     f"Fout bij "
-                    f"{inschrijving['naam']}: {error}"
+                    f"{inschrijving['naam']}: "
+                    f"{error}"
                 )
 
         print()
-        print("=" * 50)
 
         if fouten:
             print(
                 f"Klaar met {fouten} fout(en)."
             )
-            sys.exit(1)
+            return False
 
-        print("Alle inschrijvingen verwerkt.")
+        print(
+            "Alle inschrijvingen verwerkt."
+        )
+
+        return True
 
     except requests.RequestException as error:
 
-        print()
-        print(f"HTTP-fout: {error}")
-        sys.exit(1)
+        print(
+            f"HTTP-fout: {error}"
+        )
+        return False
 
     except Exception as error:
 
-        print()
+        print(
+            f"Fout: {error}"
+        )
+        return False
+
+
+def main():
+    try:
+        if not run_once():
+            sys.exit(1)
+
+    except Exception as error:
         print(f"Fout: {error}")
         sys.exit(1)
 

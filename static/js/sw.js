@@ -2,7 +2,7 @@ const CACHE_NAME = "sportbit-pwa-v1";
 
 const STATIC_FILES = [
     "/static/manifest.json",
-    "/static/icon.svg"
+    "/static/images/icon.svg"
 ];
 
 self.addEventListener("install", event => {

@@ -8,7 +8,7 @@
 
     <meta
         name="viewport"
-        content="width=device-width, initial-scale=1"
+        content="width=device-width, initial-scale=1, viewport-fit=cover"
     >
 
     <meta
@@ -152,6 +152,42 @@
 </header>
 
 {% endif %}
+
+
+
+
+
+<nav class="bottom-nav" aria-label="Hoofdnavigatie">
+
+    <a
+        href="{{ url_for('index') }}"
+        class="bottom-nav-item {% if request.endpoint == 'index' %}active{% endif %}"
+    >
+        <span class="bottom-nav-icon">⌂</span>
+        <span>Overzicht</span>
+    </a>
+
+    <a
+        href="{{ url_for('nieuwe_inschrijving') }}"
+        class="bottom-nav-item bottom-nav-add"
+    >
+        <span class="bottom-nav-add-icon">+</span>
+        <span>Toevoegen</span>
+    </a>
+
+    <a
+        href="{{ url_for('instellingen') }}"
+        class="bottom-nav-item {% if request.endpoint == 'instellingen' %}active{% endif %}"
+    >
+        <span class="bottom-nav-icon">⚙</span>
+        <span>Instellingen</span>
+    </a>
+
+</nav>
+
+
+
+
 
 <main class="container">
 

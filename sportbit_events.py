@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-import sportbit2
+import sportbit_api
 
 from sportbit_dates import (
     inschrijving_open,
@@ -132,13 +132,13 @@ def zoek_event(
     )
 
     response = session.get(
-        sportbit2.EVENTS_URL,
+        sportbit_api.EVENTS_URL,
         params={
             "datum": datum.isoformat()
         },
         headers={
-            "Origin": sportbit2.BASE_URL,
-            "Referer": f"{sportbit2.BASE_URL}/web/nl/",
+            "Origin": sportbit_api.BASE_URL,
+            "Referer": f"{sportbit_api.BASE_URL}/web/nl/",
         },
         timeout=15,
     )
@@ -214,7 +214,7 @@ def maak_status(
     """Maak een uniform statusobject."""
 
     checked_at = datetime.now(
-        sportbit2.TIMEZONE
+        sportbit_api.TIMEZONE
     )
 
     return {
@@ -288,7 +288,7 @@ def automatische_volgende_twee_controle(section):
 
             leeftijd = (
                 datetime.now(
-                    sportbit2.TIMEZONE
+                    sportbit_api.TIMEZONE
                 ).timestamp()
                 - checked_at_ts
             )
@@ -337,9 +337,9 @@ def automatische_volgende_twee_controle(section):
 
         with run_lock:
 
-            session = sportbit2.create_session()
+            session = sportbit_api.create_session()
 
-            sportbit2.login(session)
+            sportbit_api.login(session)
 
             for doel in datums:
 
@@ -389,7 +389,7 @@ def automatische_volgende_twee_controle(section):
         ]
 
     now_ts = datetime.now(
-        sportbit2.TIMEZONE
+        sportbit_api.TIMEZONE
     ).timestamp()
 
     next_lessons_cache[section] = {

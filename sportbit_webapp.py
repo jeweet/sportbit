@@ -4,7 +4,12 @@
 
 import os
 import secrets
+import importlib
+import threading
+import time
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from dotenv import dotenv_values, load_dotenv
 from flask import (
@@ -46,6 +51,9 @@ ENV_SETTINGS = (
     "NOTIFY_FROM",
     "WEB_USERNAME",
     "WEB_PASSWORD",
+    "SPORTBIT_SCHEDULER_ENABLED",
+    "SPORTBIT_SCHEDULER_TIME",
+    "SPORTBIT_SCHEDULER_TIMEZONE",
 )
 
 
@@ -116,6 +124,31 @@ def sla_instellingen_op():
         ):
             continue
 
+        if naam == "SPORTBIT_SCHEDULER_ENABLED":
+            if waarde not in {"true", "false"}:
+                raise ValueError(
+                    "Scheduler moet Ingeschakeld of Uitgeschakeld zijn."
+                )
+
+        if naam == "SPORTBIT_SCHEDULER_TIME":
+            try:
+                parse_tijd(waarde)
+            except ValueError:
+                raise ValueError(
+                    "Scheduler-tijd moet in HH:MM-formaat zijn."
+                )
+
+        if naam == "SPORTBIT_SCHEDULER_TIMEZONE":
+            toegestane_timezones = {
+                "Europe/Amsterdam",
+                "UTC",
+            }
+
+            if waarde not in toegestane_timezones:
+                raise ValueError(
+                    "Ongeldige scheduler-tijdzone."
+                )
+
         waarden[naam] = waarde
 
     # Zorg dat alle bekende variabelen aanwezig
@@ -154,11 +187,27 @@ def sla_instellingen_op():
         ENV_FILE
     )
 
-    # Nieuwe waarden direct beschikbaar
-    # maken voor het huidige Flask-process.
+    # Nieuwe waarden direct beschikbaar maken voor het
+    # huidige Flask-process. Alleen load_dotenv() is niet
+    # voldoende wanneer een module instellingen tijdens import
+    # in variabelen heeft gezet. Daarom laden we de modules die
+    # de .env-instellingen gebruiken opnieuw.
     load_dotenv(
         ENV_FILE,
         override=True,
+    )
+
+    import sportbit_api
+    import notify
+
+    importlib.reload(sportbit_api)
+    importlib.reload(notify)
+
+    # Flask gebruikt de web-loginfuncties via os.getenv(), maar
+    # houd ook de app-secret actueel wanneer die in .env staat.
+    app.secret_key = os.getenv(
+        "FLASK_SECRET_KEY",
+        "sportbit-local-secret-key",
     )
 
 
@@ -189,8 +238,11 @@ from sportbit_registration import (
     uitschrijven_les,
 )
 
-from sportbit_scheduler import (
-    start_dagelijkse_controle,
+from sportbit_automation_state import (
+    is_afgehandeld,
+    is_handmatig_overgeslagen,
+    markeer_afgehandeld,
+    verwijder_section,
 )
 
 from sportbit_state import (
@@ -795,6 +847,7 @@ def delete_inschrijving(section):
         schrijf_config(config)
 
         clear_section(section)
+        verwijder_section(section)
 
         flash(
             "Inschrijving verwijderd.",
@@ -906,6 +959,213 @@ def testmail():
 
 
 # ============================================================
+# INGEBouwde SCHEDULER
+# ============================================================
+
+_scheduler_lock = threading.Lock()
+_scheduler_last_run = None
+_scheduler_started = False
+
+
+def scheduler_instellingen():
+    """Lees de schedulerinstellingen rechtstreeks uit de actuele .env."""
+
+    waarden = dotenv_values(ENV_FILE)
+
+    enabled = (
+        str(
+            waarden.get(
+                "SPORTBIT_SCHEDULER_ENABLED",
+                "true",
+            )
+        )
+        .strip()
+        .lower()
+        == "true"
+    )
+
+    tijd = str(
+        waarden.get(
+            "SPORTBIT_SCHEDULER_TIME",
+            "00:01",
+        )
+        or "00:01"
+    ).strip()
+
+    timezone_naam = str(
+        waarden.get(
+            "SPORTBIT_SCHEDULER_TIMEZONE",
+            "Europe/Amsterdam",
+        )
+        or "Europe/Amsterdam"
+    ).strip()
+
+    return enabled, tijd, timezone_naam
+
+
+def voer_automatische_inschrijvingen_uit():
+    """Behandel iedere concrete doel-les maximaal één keer automatisch."""
+
+    config = lees_config_parser()
+
+    secties = [
+        section
+        for section in config.sections()
+        if section.startswith("inschrijving_")
+    ]
+
+    print()
+    print("=" * 55)
+    print("Automatische SportBit-scheduler")
+    print("=" * 55)
+
+    if not secties:
+        print("Geen inschrijvingen geconfigureerd.")
+        return
+
+    for section in secties:
+        try:
+            dag = config.get(section, "dag").strip().lower()
+            tijd = parse_tijd(config.get(section, "tijd").strip())
+            les = config.get(section, "les").strip()
+            doel = volgende_datum(dag, tijd)
+
+            if doel is None:
+                print(f"{section}: geen doelmoment gevonden.")
+                continue
+
+            datum = doel.date()
+
+            if is_handmatig_overgeslagen(section, datum, les, tijd):
+                print(
+                    f"{section}: {datum} {tijd.strftime('%H:%M')} overgeslagen "
+                    "omdat deze doel-les handmatig is geannuleerd."
+                )
+                continue
+
+            if is_afgehandeld(section, datum, les, tijd):
+                print(
+                    f"{section}: {datum} {tijd.strftime('%H:%M')} al automatisch "
+                    "afgehandeld."
+                )
+                continue
+
+            print(
+                f"Automatisch uitvoeren: {section} -> "
+                f"{datum} {tijd.strftime('%H:%M')} ({les})"
+            )
+
+            resultaat = voer_inschrijving_uit(section)
+
+            if resultaat:
+                markeer_afgehandeld(section, datum, les, tijd)
+                print(f"{section}: succesvol uitgevoerd en gemarkeerd als afgehandeld.")
+            else:
+                print(
+                    f"{section}: niet uitgevoerd (momenteel niet open); "
+                    "wordt later opnieuw gecontroleerd."
+                )
+
+        except Exception as error:
+            print(
+                f"{section}: fout tijdens automatische "
+                f"inschrijving: {error}"
+            )
+
+
+def scheduler_loop():
+    """Achtergrondlus voor de dagelijkse automatische controle."""
+
+    global _scheduler_last_run
+
+    while True:
+        try:
+            enabled, ingestelde_tijd, timezone_naam = (
+                scheduler_instellingen()
+            )
+
+            if not enabled:
+                time.sleep(10)
+                continue
+
+            try:
+                timezone = ZoneInfo(timezone_naam)
+            except Exception:
+                print(
+                    f"Ongeldige scheduler-timezone: "
+                    f"{timezone_naam}"
+                )
+                time.sleep(60)
+                continue
+
+            nu = datetime.now(timezone)
+            huidige_tijd = nu.strftime("%H:%M")
+            huidige_datum = nu.date()
+
+            if (
+                huidige_tijd == ingestelde_tijd
+                and _scheduler_last_run != huidige_datum
+            ):
+                with _scheduler_lock:
+                    if _scheduler_last_run != huidige_datum:
+                        print(
+                            f"Scheduler gestart om "
+                            f"{nu.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+                        )
+
+                        try:
+                            voer_automatische_inschrijvingen_uit()
+                        finally:
+                            _scheduler_last_run = huidige_datum
+
+            time.sleep(10)
+
+        except Exception as error:
+            print(
+                f"Fout in scheduler: {error}"
+            )
+            time.sleep(30)
+
+
+def start_ingebouwde_scheduler():
+    """Start de scheduler éénmalig binnen het Flask-process."""
+
+    global _scheduler_started
+
+    if _scheduler_started:
+        return
+
+    with _scheduler_lock:
+        if _scheduler_started:
+            return
+
+        _scheduler_started = True
+
+        thread = threading.Thread(
+            target=scheduler_loop,
+            name="sportbit-scheduler",
+            daemon=True,
+        )
+
+        thread.start()
+
+        enabled, ingestelde_tijd, timezone_naam = (
+            scheduler_instellingen()
+        )
+
+        print(
+            "Ingebouwde scheduler gestart: "
+            f"enabled={enabled}, "
+            f"tijd={ingestelde_tijd}, "
+            f"timezone={timezone_naam}"
+        )
+
+
+# Start ook wanneer Flask/Gunicorn deze module importeert.
+start_ingebouwde_scheduler()
+
+
+# ============================================================
 # MAIN
 # ============================================================
 
@@ -929,7 +1189,6 @@ if __name__ == "__main__":
 
     print()
 
-    start_dagelijkse_controle()
 
     app.run(
         host="0.0.0.0",

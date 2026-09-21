@@ -170,6 +170,103 @@
         </div>
 
 
+<!-- ==================================================
+     SCHEDULER
+     ================================================== -->
+
+<div class="settings-section">
+
+    <h2>Automatische inschrijving</h2>
+
+    <p class="settings-description">
+        Bepaal of de automatische SportBit-scheduler actief is
+        en wanneer de dagelijkse controle wordt uitgevoerd.
+    </p>
+
+
+    <label for="SPORTBIT_SCHEDULER_ENABLED">
+        Automatische inschrijving
+    </label>
+
+    <select
+        id="SPORTBIT_SCHEDULER_ENABLED"
+        name="SPORTBIT_SCHEDULER_ENABLED"
+    >
+
+        <option
+            value="true"
+            {% if settings.SPORTBIT_SCHEDULER_ENABLED == "true" %}
+                selected
+            {% endif %}
+        >
+            Ingeschakeld
+        </option>
+
+        <option
+            value="false"
+            {% if settings.SPORTBIT_SCHEDULER_ENABLED == "false" %}
+                selected
+            {% endif %}
+        >
+            Uitgeschakeld
+        </option>
+
+    </select>
+
+
+    <label for="SPORTBIT_SCHEDULER_TIME">
+        Controle uitvoeren om
+    </label>
+
+    <input
+        id="SPORTBIT_SCHEDULER_TIME"
+        name="SPORTBIT_SCHEDULER_TIME"
+        type="text"
+        value="{{ settings.SPORTBIT_SCHEDULER_TIME }}"
+        pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+        maxlength="5"
+        inputmode="numeric"
+        required
+    >
+
+    <p class="hint">
+        De scheduler controleert dagelijks rond dit tijdstip
+        welke automatische inschrijvingen uitgevoerd moeten worden.
+    </p>
+
+
+    <label for="SPORTBIT_SCHEDULER_TIMEZONE">
+        Tijdzone
+    </label>
+
+    <select
+        id="SPORTBIT_SCHEDULER_TIMEZONE"
+        name="SPORTBIT_SCHEDULER_TIMEZONE"
+    >
+
+        <option
+            value="Europe/Amsterdam"
+            {% if settings.SPORTBIT_SCHEDULER_TIMEZONE == "Europe/Amsterdam" %}
+                selected
+            {% endif %}
+        >
+            Europe/Amsterdam
+        </option>
+
+        <option
+            value="UTC"
+            {% if settings.SPORTBIT_SCHEDULER_TIMEZONE == "UTC" %}
+                selected
+            {% endif %}
+        >
+            UTC
+        </option>
+
+    </select>
+
+</div>
+
+
         <!-- ==================================================
              SMTP
              ================================================== -->
@@ -350,5 +447,46 @@
     </div>
 
 </section>
+
+<!-- ============================================================
+     MOBIELE ACTIES
+     ============================================================ -->
+
+<section class="card settings-mobile-actions">
+
+    <div class="settings-testmail-content">
+
+        <div>
+
+            <h2>Menu</h2>
+
+            <p>
+                Snelle toegang tot het logbestand en uitloggen.
+            </p>
+
+        </div>
+
+        <div class="settings-mobile-buttons">
+
+            <a
+                href="{{ url_for('log') }}"
+                class="button button-testmail"
+            >
+                ≡ Logbestand
+            </a>
+
+            <a
+                href="{{ url_for('logout') }}"
+                class="button button-danger"
+            >
+                ↪ Uitloggen
+            </a>
+
+        </div>
+
+    </div>
+
+</section>
+
 
 {% endblock %}

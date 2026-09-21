@@ -559,7 +559,7 @@ Een mogelijke structuur:
 | `sportbit.conf` | Geconfigureerde lessen |
 | `.env` | Gevoelige configuratie |
 | `static/manifest.json` | PWA-configuratie |
-| `static/sw.js` | Service worker |
+| `static/js/sw.js` | Service worker |
 | `static/icon.svg` | PWA/browsericoon |
 
 ---

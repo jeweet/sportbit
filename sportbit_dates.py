@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta
 
 
-import sportbit2
+import sportbit_api
 
 
 DAGEN = {
@@ -69,7 +69,7 @@ def volgende_datum(dag, tijd):
     tijd_obj = parse_tijd(tijd)
 
     nu = datetime.now(
-        sportbit2.TIMEZONE
+        sportbit_api.TIMEZONE
     )
 
     dagen_tot = (
@@ -85,7 +85,7 @@ def volgende_datum(dag, tijd):
     doel = datetime.combine(
         doel_datum,
         tijd_obj,
-        tzinfo=sportbit2.TIMEZONE,
+        tzinfo=sportbit_api.TIMEZONE,
     )
 
     # Als het tijdstip vandaag al voorbij is,
@@ -103,7 +103,7 @@ def inschrijving_open(datum):
     """
 
     nu = datetime.now(
-        sportbit2.TIMEZONE
+        sportbit_api.TIMEZONE
     )
 
     openingsdatum = datum - timedelta(days=7)
@@ -111,7 +111,7 @@ def inschrijving_open(datum):
     openingsmoment = datetime.combine(
         openingsdatum,
         datetime.min.time(),
-        tzinfo=sportbit2.TIMEZONE,
+        tzinfo=sportbit_api.TIMEZONE,
     )
 
     return nu >= openingsmoment

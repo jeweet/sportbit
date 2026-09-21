@@ -324,14 +324,7 @@ Installeer de benodigde Python-packages:
 pip install flask python-dotenv requests
 ```
 
-Als `sportbit2` en `notify` externe packages zijn, installeer deze volgens de bijbehorende documentatie.
-
-Als ze onderdeel zijn van deze repository, moeten de bestanden bijvoorbeeld aanwezig zijn als:
-
-```text
-sportbit2.py
-notify.py
-```
+Alle overige modules (`sportbit_api.py`, `sportbit_config.py`, `sportbit_dates.py`, `sportbit_events.py`, `sportbit_registration.py`, `sportbit_automation_state.py`, `sportbit_state.py`, `notify.py`) horen al bij deze repository en hoeven niet apart geïnstalleerd te worden.
 
 ---
 
@@ -359,6 +352,11 @@ SPORTBIT_PASSWORD=jouw_crossfit_wachtwoord
 
 FLASK_SECRET_KEY=vervang-dit-door-een-lange-willekeurige-string
 
+# Zet dit op true zodra de app achter HTTPS bereikbaar is
+# (bijvoorbeeld via een reverse proxy). Bij platte HTTP op een
+# lokaal netwerk kan dit op false blijven staan.
+SESSION_COOKIE_SECURE=false
+
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_USERNAME=jouw-email@example.com
@@ -368,6 +366,12 @@ SMTP_TO=jouw-email@example.com
 ```
 
 > **Let op:** commit nooit je echte `.env` naar GitHub.
+>
+> Als `FLASK_SECRET_KEY` leeg blijft, genereert de app bij de eerste
+> start automatisch een willekeurige sleutel en slaat deze op in
+> `.flask_secret_key` (staat al in `.gitignore`). Voor productie is
+> het beter om zelf een vaste, lange willekeurige string in te
+> stellen via `FLASK_SECRET_KEY`.
 
 Voeg bijvoorbeeld het volgende toe aan `.gitignore`:
 
@@ -409,7 +413,7 @@ Je kunt deze configuratie handmatig aanpassen, maar normaal gesproken kan dit vi
 Start de applicatie met:
 
 ```bash
-python3 app.py
+python3 sportbit_webapp.py
 ```
 
 De Flask-server luistert standaard op:
@@ -445,7 +449,7 @@ pip install gunicorn
 Daarna:
 
 ```bash
-gunicorn -w 1 -b 0.0.0.0:5000 app:app
+gunicorn -w 1 -b 0.0.0.0:5000 sportbit_webapp:app
 ```
 
 ## Waarom `-w 1`?
@@ -526,41 +530,63 @@ Let daarom op het volgende:
 - Commit `.env` niet naar Git.
 - Commit SMTP-wachtwoorden niet naar Git.
 - Zet `sportbit.conf` niet openbaar als daarin persoonlijke gegevens staan.
-- Gebruik HTTPS wanneer de webinterface buiten een vertrouwd lokaal netwerk beschikbaar wordt gemaakt.
-- Gebruik een sterke `FLASK_SECRET_KEY`.
+- Gebruik HTTPS wanneer de webinterface buiten een vertrouwd lokaal netwerk beschikbaar wordt gemaakt, en zet in dat geval ook `SESSION_COOKIE_SECURE=true`.
+- Gebruik een sterke `FLASK_SECRET_KEY` (of laat de app er automatisch één genereren, zie hierboven).
+- Stel **altijd** `WEB_USERNAME`/`WEB_PASSWORD` in zodra de app bereikbaar is voor meer dan alleen jouw eigen apparaat. Zonder deze instelling is de hele webinterface, inclusief Instellingen, voor iedereen open; de app toont hiervoor zowel bij het opstarten (in de logs) als in de webinterface zelf een waarschuwing.
 - Beperk indien mogelijk de toegang tot de Flask-webinterface.
 - De standaard Flask development server is niet bedoeld als volledige productie-infrastructuur.
+
+### Ingebouwde beveiligingsmaatregelen
+
+- **CSRF-bescherming**: alle formulieren (inschrijven, uitschrijven, toevoegen, bewerken, verwijderen, instellingen, testmail, inloggen) versturen een tokengebonden aan de sessie. Aanvragen zonder geldige token worden geweigerd (HTTP 400).
+- **Sessiecookies** staan standaard op `HttpOnly` en `SameSite=Lax`; `Secure` is aan te zetten via `SESSION_COOKIE_SECURE`.
+- **Geen vaste/publieke `FLASK_SECRET_KEY`**: zonder eigen instelling genereert de app zelf een willekeurige sleutel en bewaart deze lokaal.
 
 ---
 
 # Projectstructuur
 
-Een mogelijke structuur:
+De daadwerkelijke structuur:
 
 ```text
 .
-├── app.py
-├── sportbit2.py
+├── sportbit_webapp.py
+├── sportbit_api.py
+├── sportbit_events.py
+├── sportbit_registration.py
+├── sportbit_config.py
+├── sportbit_dates.py
+├── sportbit_automation_state.py
+├── sportbit_state.py
 ├── notify.py
 ├── sportbit.conf
 ├── .env
+├── .flask_secret_key
+├── templates/
 ├── static/
 │   ├── manifest.json
-│   ├── icon.svg
-│   └── sw.js
+│   ├── images/icon.svg
+│   └── js/sw.js
 └── README.md
 ```
 
 | Bestand | Functie |
 |---|---|
-| `app.py` | Flask-webapp, configuratie en scheduler |
-| `sportbit2.py` | SportBit-login, API-communicatie en inschrijving |
+| `sportbit_webapp.py` | Flask-webapp: routes, login/CSRF, instellingen en de ingebouwde scheduler |
+| `sportbit_api.py` | Laagdrempelige SportBit API-laag: sessie, login, in-/uitschrijven |
+| `sportbit_events.py` | Events zoeken bij SportBit en de status ervan bepalen (met cache) |
+| `sportbit_registration.py` | Eén inschrijving/uitschrijving orkestreren, loggen en notificeren |
+| `sportbit_config.py` | Lezen/schrijven van `sportbit.conf` |
+| `sportbit_dates.py` | Datum-/tijdlogica (eerstvolgende les, boekingsmoment) |
+| `sportbit_automation_state.py` | Onthoudt welke doel-lessen al automatisch zijn afgehandeld of handmatig zijn overgeslagen |
+| `sportbit_state.py` | Gedeelde in-memory runtime-status, cache en logging |
 | `notify.py` | E-mailnotificaties |
 | `sportbit.conf` | Geconfigureerde lessen |
 | `.env` | Gevoelige configuratie |
+| `.flask_secret_key` | Automatisch gegenereerde sessiesleutel (alleen als `FLASK_SECRET_KEY` niet is ingesteld) |
 | `static/manifest.json` | PWA-configuratie |
 | `static/js/sw.js` | Service worker |
-| `static/icon.svg` | PWA/browsericoon |
+| `static/images/icon.svg` | PWA/browsericoon |
 
 ---
 

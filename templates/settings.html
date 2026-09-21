@@ -15,6 +15,8 @@
 
 <form method="post">
 
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
     <section class="card settings-card">
 
 
@@ -434,6 +436,8 @@
             method="post"
             action="{{ url_for('testmail') }}"
         >
+
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <button
                 type="submit"

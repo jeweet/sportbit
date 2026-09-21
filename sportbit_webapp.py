@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 from dotenv import dotenv_values, load_dotenv
 from flask import (
     Flask,
+    abort,
     flash,
     redirect,
     render_template,
@@ -31,7 +32,65 @@ BASE_DIR = Path(__file__).resolve().parent
 
 ENV_FILE = BASE_DIR / ".env"
 
+SECRET_KEY_FILE = BASE_DIR / ".flask_secret_key"
+
 load_dotenv(ENV_FILE)
+
+
+def get_of_maak_secret_key():
+    """Geef een stabiele Flask secret key terug.
+
+    Volgorde:
+    1. FLASK_SECRET_KEY uit .env, indien ingesteld.
+    2. Een eerder gegenereerde sleutel uit .flask_secret_key.
+    3. Een nieuwe, willekeurige sleutel, die daarna wordt opgeslagen
+       zodat bestaande sessies een herstart overleven.
+
+    Er wordt bewust geen vaste/publieke fallbackstring meer gebruikt:
+    zo'n vaste string zou sessies (en dus logins) vervalsbaar maken
+    zodra de app buiten localhost bereikbaar is.
+    """
+
+    waarde = os.getenv(
+        "FLASK_SECRET_KEY",
+        "",
+    ).strip()
+
+    if waarde:
+        return waarde
+
+    if SECRET_KEY_FILE.exists():
+
+        bestaande = SECRET_KEY_FILE.read_text(
+            encoding="utf-8"
+        ).strip()
+
+        if bestaande:
+            return bestaande
+
+    nieuwe_sleutel = secrets.token_hex(32)
+
+    tijdelijke_file = SECRET_KEY_FILE.with_suffix(".tmp")
+
+    tijdelijke_file.write_text(
+        nieuwe_sleutel,
+        encoding="utf-8",
+    )
+
+    tijdelijke_file.replace(SECRET_KEY_FILE)
+
+    try:
+        os.chmod(SECRET_KEY_FILE, 0o600)
+    except OSError:
+        pass
+
+    print(
+        "Geen FLASK_SECRET_KEY ingesteld in .env: nieuwe willekeurige "
+        f"sleutel gegenereerd en opgeslagen in {SECRET_KEY_FILE.name}. "
+        "Zet bij voorkeur zelf een vaste FLASK_SECRET_KEY in .env."
+    )
+
+    return nieuwe_sleutel
 
 
 # ============================================================
@@ -204,11 +263,8 @@ def sla_instellingen_op():
     importlib.reload(notify)
 
     # Flask gebruikt de web-loginfuncties via os.getenv(), maar
-    # houd ook de app-secret actueel wanneer die in .env staat.
-    app.secret_key = os.getenv(
-        "FLASK_SECRET_KEY",
-        "sportbit-local-secret-key",
-    )
+    # houd ook de app-secret actueel wanneer die net in .env is gezet.
+    app.secret_key = get_of_maak_secret_key()
 
 
 # ============================================================
@@ -263,9 +319,32 @@ app = Flask(
 )
 
 
-app.secret_key = os.getenv(
-    "FLASK_SECRET_KEY",
-    "sportbit-local-secret-key",
+app.secret_key = get_of_maak_secret_key()
+
+# ------------------------------------------------------------
+# Sessiecookie-beveiliging
+# ------------------------------------------------------------
+#
+# HTTPONLY: cookie is niet leesbaar via JavaScript (voorkomt diefstal
+#           via XSS).
+# SAMESITE=Lax: cookie wordt niet meegestuurd bij cross-site POSTs
+#           vanaf andere sites, wat ook CSRF bemoeilijkt.
+# SECURE: cookie wordt alleen over HTTPS verstuurd. Dit staat standaard
+#           uit omdat de app vaak direct over HTTP op een lokaal netwerk
+#           draait; zet SESSION_COOKIE_SECURE=true in .env zodra de app
+#           achter HTTPS (bijvoorbeeld een reverse proxy) bereikbaar is.
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=(
+        os.getenv(
+            "SESSION_COOKIE_SECURE",
+            "false",
+        )
+        .strip()
+        .lower()
+        in {"1", "true", "yes", "on"}
+    ),
 )
 
 
@@ -298,6 +377,19 @@ def login_ingesteld():
     )
 
 
+@app.context_processor
+def inject_login_status():
+
+    # Wordt gebruikt om in de webinterface zelf een duidelijke
+    # waarschuwing te tonen zolang er geen WEB_USERNAME/WEB_PASSWORD
+    # zijn ingesteld: zonder die instelling is de hele app (inclusief
+    # Instellingen, met daarin gevoelige configuratie) bereikbaar voor
+    # iedereen die de server kan benaderen.
+    return {
+        "login_ingesteld": login_ingesteld(),
+    }
+
+
 @app.before_request
 def controleer_login():
 
@@ -320,6 +412,81 @@ def controleer_login():
     return redirect(
         url_for("login")
     )
+
+
+# ============================================================
+# CSRF-BESCHERMING
+# ============================================================
+#
+# Lichtgewicht, afhankelijkheidsvrij CSRF-token: bij ieder GET-bezoek
+# wordt een willekeurige token in de sessie gezet; ieder formulier
+# stuurt deze token als verborgen veld mee. Bij een POST/PUT/PATCH/
+# DELETE wordt de meegestuurde token vergeleken met de sessietoken.
+# Zonder geldige (of ontbrekende) token wordt de aanvraag geweigerd,
+# ook als de gebruiker wel is ingelogd.
+
+def csrf_token():
+
+    token = session.get("csrf_token")
+
+    if not token:
+
+        token = secrets.token_hex(
+            16
+        )
+
+        session["csrf_token"] = token
+
+    return token
+
+
+@app.context_processor
+def inject_csrf_token():
+
+    return {
+        "csrf_token": csrf_token,
+    }
+
+
+@app.before_request
+def controleer_csrf():
+
+    if request.method not in {
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+    }:
+        return
+
+    if request.endpoint == "static":
+        return
+
+    verwachte_token = session.get(
+        "csrf_token"
+    )
+
+    ontvangen_token = request.form.get(
+        "csrf_token",
+        "",
+    )
+
+    if (
+        not verwachte_token
+        or not ontvangen_token
+        or not secrets.compare_digest(
+            ontvangen_token,
+            verwachte_token,
+        )
+    ):
+
+        abort(
+            400,
+            description=(
+                "Ongeldige of verlopen beveiligingstoken. "
+                "Herlaad de pagina en probeer het opnieuw."
+            ),
+        )
 
 
 # ============================================================
@@ -1164,6 +1331,13 @@ def start_ingebouwde_scheduler():
 # Start ook wanneer Flask/Gunicorn deze module importeert.
 start_ingebouwde_scheduler()
 
+if not login_ingesteld():
+    print(
+        "WAARSCHUWING: WEB_USERNAME/WEB_PASSWORD zijn niet ingesteld. "
+        "De volledige webinterface (inclusief Instellingen) is hierdoor "
+        "bereikbaar voor iedereen die deze server kan benaderen."
+    )
+
 
 # ============================================================
 # MAIN
@@ -1176,6 +1350,17 @@ if __name__ == "__main__":
     print("Go Personal · SportBit webapp")
     print("=" * 55)
     print()
+
+    if not login_ingesteld():
+        print(
+            "WAARSCHUWING: WEB_USERNAME/WEB_PASSWORD zijn niet "
+            "ingesteld. De volledige webinterface (inclusief "
+            "Instellingen) is hierdoor bereikbaar voor iedereen "
+            "die deze server kan benaderen. Stel deze in via "
+            ".env of de Instellingen-pagina voordat je de app "
+            "buiten je eigen apparaat beschikbaar maakt."
+        )
+        print()
 
     print(
         "Luistert op: 0.0.0.0:5000"

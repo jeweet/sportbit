@@ -3,6 +3,8 @@
 __pycache__/
 *.pyc
 
+.flask_secret_key
+
 notify_state.json
 sportbit.conf
 

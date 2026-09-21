@@ -117,6 +117,7 @@
         )
     }}"
 >
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button
         type="submit"
         class="lesson-unregister"
@@ -153,6 +154,8 @@
             }}"
         >
 
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
             <button
                 type="submit"
                 class="button button-primary"
@@ -188,6 +191,8 @@
                 )
             }}"
         >
+
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <button
                 type="submit"

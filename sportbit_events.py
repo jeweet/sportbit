@@ -25,7 +25,14 @@ def extract_events(data):
     (bijvoorbeeld alleen 'ochtend').
     """
 
+    # Grens op de nestingsdiepte en een bezocht-set op basis van
+    # object-identiteit. Dit voorkomt dat een onverwacht gevormde of
+    # zeer diep geneste (of, bij een lus in de data, oneindige)
+    # SportBit-response tot een RecursionError of hang leidt.
+    MAX_DIEPTE = 12
+
     events = []
+    bezocht = set()
 
     def toevoegen(value):
         if not isinstance(value, list):
@@ -44,7 +51,19 @@ def extract_events(data):
             ):
                 events.append(item)
 
-    def doorzoek(value):
+    def doorzoek(value, diepte=0):
+
+        if diepte > MAX_DIEPTE:
+            return
+
+        if isinstance(value, (list, dict)):
+
+            object_id = id(value)
+
+            if object_id in bezocht:
+                return
+
+            bezocht.add(object_id)
 
         if isinstance(value, list):
 
@@ -53,7 +72,7 @@ def extract_events(data):
             # Voor de zekerheid ook dieper zoeken.
             for item in value:
                 if isinstance(item, (dict, list)):
-                    doorzoek(item)
+                    doorzoek(item, diepte + 1)
 
             return
 
@@ -73,7 +92,7 @@ def extract_events(data):
         ):
 
             if key in value:
-                doorzoek(value[key])
+                doorzoek(value[key], diepte + 1)
 
         # Daarna ook alle overige velden doorzoeken.
         for key, nested in value.items():
@@ -91,7 +110,7 @@ def extract_events(data):
                 continue
 
             if isinstance(nested, (dict, list)):
-                doorzoek(nested)
+                doorzoek(nested, diepte + 1)
 
     doorzoek(data)
 

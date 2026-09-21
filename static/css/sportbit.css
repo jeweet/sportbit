@@ -1119,10 +1119,11 @@ form select option {
 
 .login-body {
     overflow: hidden;
+
+    padding-bottom: 0;
 }
 
 .login-page {
-    min-height: 100dvh;
 
     display: flex;
     align-items: center;

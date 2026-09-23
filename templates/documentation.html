@@ -2,200 +2,162 @@
 
 {% block content %}
 
-<div class="page-title">
+<div class="page-title"> <h1>Uitleg</h1>
+<p>
+    Hoe de automatische SportBit-inschrijvingen
+    en notificaties werken.
+</p>
 
-    <h1>
-        Uitleg
-    </h1>
+</div> <section class="card documentation">
+<h2>1. Automatische inschrijving</h2>
 
-    <p>
-        Hoe de automatische SportBit-inschrijvingen
-        en notificaties werken.
-    </p>
+<p>
+    Voor iedere inschrijving uit
+    <code>sportbit.conf</code> wordt de eerstvolgende
+    les op de ingestelde weekdag en tijd bepaald.
+    De automatische registratie is gericht op de
+    les precies één week later.
+</p>
 
+<p>
+    Rond <strong>00:01</strong> op de dag waarop de
+    inschrijving opent wordt SportBit gecontroleerd.
+    De les wordt gezocht op
+    <strong>lesnaam + tijd</strong>.
+    Het event-ID wordt dus niet vooraf vastgelegd.
+</p>
+
+<h2>2. Dagelijkse controle om 00:01</h2>
+
+<p>
+    De webapp heeft een achtergrondcontrole die
+    dagelijks rond 00:01 kijkt voor welke
+    geconfigureerde lessen die dag de boekingsperiode
+    opent.
+</p>
+
+<p>
+    Als de verwachte les niet bestaat, bijvoorbeeld
+    omdat een WOD is vervangen door een andere les,
+    wordt geen inschrijving uitgevoerd en kan direct
+    een notificatiemail worden verstuurd.
+</p>
+
+<p>
+    Een technische fout bij het ophalen van SportBit
+    wordt niet automatisch als "les ontbreekt"
+    beschouwd.
+</p>
+
+<h2>3. Wanneer wordt een e-mail gestuurd?</h2>
+
+<ul>
+    <li>
+        <strong>Les ontbreekt:</strong>
+        de dagelijkse controle vindt de verwachte les
+        niet op de doel-datum en het ingestelde tijdstip.
+    </li>
+
+    <li>
+        <strong>Inschrijving mislukt:</strong>
+        een daadwerkelijke automatische inschrijfpoging
+        levert een fout op of de inschrijving kan niet
+        worden bevestigd.
+    </li>
+
+    <li>
+        <strong>Testmail:</strong>
+        via <strong>Stuur testmail</strong> kan handmatig
+        worden gecontroleerd of de SMTP-configuratie werkt.
+    </li>
+</ul>
+
+<h2>4. Wanneer wordt géén melding gestuurd?</h2>
+
+<ul>
+    <li>
+        Als je al bent ingeschreven.
+    </li>
+
+    <li>
+        Als je al op de wachtlijst staat.
+    </li>
+
+    <li>
+        Als de boekingsperiode nog niet geopend is.
+    </li>
+
+    <li>
+        Als een tijdelijke technische fout niet kan
+        worden vastgesteld als een ontbrekende les.
+    </li>
+</ul>
+
+<h2>5. Dubbele meldingen voorkomen</h2>
+
+<p>
+    Voor een ontbrekende les wordt per inschrijving
+    en doel-datum maximaal één melding verstuurd.
+    De registratie hiervan staat in
+    <code>notify_state.json</code>.
+    Hierdoor veroorzaakt een herhaalde controle
+    niet steeds opnieuw dezelfde mail.
+</p>
+
+<h2>6. E-mailconfiguratie</h2>
+
+<p>
+    De notificaties gebruiken de SMTP-instellingen
+    uit <code>.env</code>.
+    De module <code>notify.py</code> bevat uitsluitend
+    de e-mailafhandeling.
+    De SportBit- en Flask-logica staat in de
+    afzonderlijke modules.
+</p>
+
+<h2>7. Statussen in de webapp</h2>
+
+<ul>
+    <li>
+        <strong>INGESCHREVEN</strong> —
+        SportBit meldt dat de registratie gelukt is.
+    </li>
+
+    <li>
+        <strong>WACHTLIJST</strong> —
+        je staat op de wachtlijst.
+    </li>
+
+    <li>
+        <strong>NIET INGESCHREVEN</strong> —
+        de les bestaat en registratie is mogelijk.
+    </li>
+
+    <li>
+        <strong>INSCHRIJVING GESLOTEN</strong> —
+        de les bestaat, maar het boekingsmoment is nog
+        niet aangebroken.
+    </li>
+
+    <li>
+        <strong>GEEN EVENT</strong> —
+        de verwachte les is niet gevonden.
+    </li>
+
+    <li>
+        <strong>STATUS ONBEKEND</strong> —
+        de controle kon niet betrouwbaar worden uitgevoerd.
+    </li>
+</ul>
+
+<div class="form-actions">
+    <a
+        href="{{ url_for('index') }}"
+        class="button"
+    >
+        Terug
+    </a>
 </div>
-
-
-<section class="card documentation">
-
-    <h2>
-        1. Automatische inschrijving
-    </h2>
-
-    <p>
-        Voor iedere inschrijving uit
-        <code>sportbit.conf</code> wordt de eerstvolgende
-        les op de ingestelde weekdag en tijd bepaald.
-        De automatische registratie is gericht op de
-        les precies één week later.
-    </p>
-
-    <p>
-        Rond <strong>00:01</strong> op de dag waarop de
-        inschrijving opent wordt SportBit gecontroleerd.
-        De les wordt gezocht op
-        <strong>lesnaam + tijd</strong>.
-        Het event-ID wordt dus niet vooraf vastgelegd.
-    </p>
-
-
-    <h2>
-        2. Dagelijkse controle om 00:01
-    </h2>
-
-    <p>
-        De webapp heeft een achtergrondcontrole die
-        dagelijks rond 00:01 kijkt voor welke
-        geconfigureerde lessen die dag de boekingsperiode
-        opent.
-    </p>
-
-    <p>
-        Als de verwachte les niet bestaat, bijvoorbeeld
-        omdat een WOD is vervangen door een andere les,
-        wordt geen inschrijving uitgevoerd en kan direct
-        een notificatiemail worden verstuurd.
-    </p>
-
-    <p>
-        Een technische fout bij het ophalen van SportBit
-        wordt niet automatisch als "les ontbreekt"
-        beschouwd.
-    </p>
-
-
-    <h2>
-        3. Wanneer wordt een e-mail gestuurd?
-    </h2>
-
-    <ul>
-
-        <li>
-            <strong>Les ontbreekt:</strong>
-            de dagelijkse controle vindt de verwachte les
-            niet op de doel-datum en het ingestelde tijdstip.
-        </li>
-
-        <li>
-            <strong>Inschrijving mislukt:</strong>
-            een daadwerkelijke automatische inschrijfpoging
-            levert een fout op of de inschrijving kan niet
-            worden bevestigd.
-        </li>
-
-        <li>
-            <strong>Testmail:</strong>
-            via <strong>Stuur testmail</strong> kan handmatig
-            worden gecontroleerd of de SMTP-configuratie werkt.
-        </li>
-
-    </ul>
-
-
-    <h2>
-        4. Wanneer wordt géén melding gestuurd?
-    </h2>
-
-    <ul>
-
-        <li>
-            Als je al bent ingeschreven.
-        </li>
-
-        <li>
-            Als je al op de wachtlijst staat.
-        </li>
-
-        <li>
-            Als de boekingsperiode nog niet geopend is.
-        </li>
-
-        <li>
-            Als een tijdelijke technische fout niet kan
-            worden vastgesteld als een ontbrekende les.
-        </li>
-
-    </ul>
-
-
-    <h2>
-        5. Dubbele meldingen voorkomen
-    </h2>
-
-    <p>
-        Voor een ontbrekende les wordt per inschrijving
-        en doel-datum maximaal één melding verstuurd.
-        De registratie hiervan staat in
-        <code>notify_state.json</code>.
-        Hierdoor veroorzaakt een herhaalde controle
-        niet steeds opnieuw dezelfde mail.
-    </p>
-
-
-    <h2>
-        6. E-mailconfiguratie
-    </h2>
-
-    <p>
-        De notificaties gebruiken de SMTP-instellingen
-        uit <code>.env</code>.
-        De module <code>notify.py</code> bevat uitsluitend
-        de e-mailafhandeling.
-        De SportBit- en Flask-logica staat in de
-        afzonderlijke modules.
-    </p>
-
-
-    <h2>
-        7. Statussen in de webapp
-    </h2>
-
-    <ul>
-
-        <li>
-            <strong>INGESCHREVEN</strong> —
-            SportBit meldt dat de registratie gelukt is.
-        </li>
-
-        <li>
-            <strong>WACHTLIJST</strong> —
-            je staat op de wachtlijst.
-        </li>
-
-        <li>
-            <strong>NIET INGESCHREVEN</strong> —
-            de les bestaat en registratie is mogelijk.
-        </li>
-
-        <li>
-            <strong>INSCHRIJVING GESLOTEN</strong> —
-            de les bestaat, maar het boekingsmoment is nog
-            niet aangebroken.
-        </li>
-
-        <li>
-            <strong>GEEN EVENT</strong> —
-            de verwachte les is niet gevonden.
-        </li>
-
-        <li>
-            <strong>STATUS ONBEKEND</strong> —
-            de controle kon niet betrouwbaar worden uitgevoerd.
-        </li>
-
-    </ul>
-
-
-    <div class="form-actions">
-
-        <a
-            href="{{ url_for('index') }}"
-            class="button"
-        >
-            Terug
-        </a>
-
-    </div>
 
 </section>
 

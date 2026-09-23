@@ -2,495 +2,439 @@
 
 {% block content %}
 
-<div class="page-title">
+<div class="page-title"> <h1>Instellingen</h1>
+<p>
+    Login, account, inschrijving en notificaties
+</p>
 
-    <h1>Instellingen</h1>
+</div> <form method="post">
+<input
+    type="hidden"
+    name="csrf_token"
+    value="{{ csrf_token() }}"
+>
 
-    <p>
-        Login, account en e-mailnotificaties
-    </p>
+<section class="card settings-card">
+
+    <!-- ==================================================
+         LOGIN
+         ================================================== -->
+
+    <div class="settings-section">
+
+        <h2>Login</h2>
+
+        <p class="settings-description">
+            Gebruikersnaam en wachtwoord voor toegang tot deze webapp.
+        </p>
+
+        <label for="WEB_USERNAME">
+            Gebruikersnaam
+        </label>
+
+        <input
+            id="WEB_USERNAME"
+            name="WEB_USERNAME"
+            type="text"
+            value="{{ settings.WEB_USERNAME }}"
+            autocomplete="username"
+            required
+        >
+
+        <label for="WEB_PASSWORD">
+            Wachtwoord
+        </label>
+
+        <input
+            id="WEB_PASSWORD"
+            name="WEB_PASSWORD"
+            type="password"
+            value=""
+            placeholder="{{ settings.WEB_PASSWORD_PLACEHOLDER }}"
+            autocomplete="new-password"
+        >
+
+        <p class="hint">
+            Laat leeg om het huidige wachtwoord te behouden.
+        </p>
+
+    </div>
+
+    <!-- ==================================================
+         CROSSFIT GO PERSONAL ACCOUNT
+         ================================================== -->
+
+    <div class="settings-section">
+
+        <h2>Crossfit Go Personal account</h2>
+
+        <p class="settings-description">
+            Inloggegevens voor SportBit van Crossfit Go Personal.
+        </p>
+
+        <label for="SPORTBIT_USERNAME">
+            Gebruikersnaam
+        </label>
+
+        <input
+            id="SPORTBIT_USERNAME"
+            name="SPORTBIT_USERNAME"
+            type="text"
+            value="{{ settings.SPORTBIT_USERNAME }}"
+            autocomplete="username"
+        >
+
+        <label for="SPORTBIT_PASSWORD">
+            Wachtwoord
+        </label>
+
+        <input
+            id="SPORTBIT_PASSWORD"
+            name="SPORTBIT_PASSWORD"
+            type="password"
+            value=""
+            placeholder="{{ settings.SPORTBIT_PASSWORD_PLACEHOLDER }}"
+            autocomplete="new-password"
+        >
+
+        <p class="hint">
+            Laat leeg om het huidige wachtwoord te behouden.
+        </p>
+
+    </div>
+
+    <!-- ==================================================
+         SCHEDULER
+         ================================================== -->
+
+    <div class="settings-section">
+
+        <h2>Automatische inschrijving</h2>
+
+        <p class="settings-description">
+            Bepaal of de automatische SportBit-scheduler actief is
+            en wanneer de dagelijkse controle wordt uitgevoerd.
+        </p>
+
+        <label for="SPORTBIT_SCHEDULER_ENABLED">
+            Automatische inschrijving
+        </label>
+
+        <select
+            id="SPORTBIT_SCHEDULER_ENABLED"
+            name="SPORTBIT_SCHEDULER_ENABLED"
+        >
+            <option
+                value="true"
+                {% if settings.SPORTBIT_SCHEDULER_ENABLED == "true" %}selected{% endif %}
+            >
+                Ingeschakeld
+            </option>
+
+            <option
+                value="false"
+                {% if settings.SPORTBIT_SCHEDULER_ENABLED == "false" %}selected{% endif %}
+            >
+                Uitgeschakeld
+            </option>
+        </select>
+
+        <label for="SPORTBIT_SCHEDULER_TIME">
+            Controle uitvoeren om
+        </label>
+
+        <input
+            id="SPORTBIT_SCHEDULER_TIME"
+            name="SPORTBIT_SCHEDULER_TIME"
+            type="text"
+            value="{{ settings.SPORTBIT_SCHEDULER_TIME }}"
+            pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+            maxlength="5"
+            inputmode="numeric"
+            required
+        >
+
+        <p class="hint">
+            De scheduler controleert dagelijks rond dit tijdstip
+            welke automatische inschrijvingen uitgevoerd moeten worden.
+        </p>
+
+        <label for="SPORTBIT_SCHEDULER_TIMEZONE">
+            Tijdzone
+        </label>
+
+        <select
+            id="SPORTBIT_SCHEDULER_TIMEZONE"
+            name="SPORTBIT_SCHEDULER_TIMEZONE"
+        >
+            <option
+                value="Europe/Amsterdam"
+                {% if settings.SPORTBIT_SCHEDULER_TIMEZONE == "Europe/Amsterdam" %}selected{% endif %}
+            >
+                Europe/Amsterdam
+            </option>
+
+            <option
+                value="UTC"
+                {% if settings.SPORTBIT_SCHEDULER_TIMEZONE == "UTC" %}selected{% endif %}
+            >
+                UTC
+            </option>
+        </select>
+
+    </div>
+
+    <!-- ==================================================
+         NOTIFICATIES
+         ================================================== -->
+
+    <div class="settings-section">
+
+        <h2>Notificaties</h2>
+
+        <p class="settings-description">
+            Instellingen voor e-mailmeldingen.
+        </p>
+
+        <label for="NOTIFY_ENABLED">
+            Notificaties
+        </label>
+
+        <select
+            id="NOTIFY_ENABLED"
+            name="NOTIFY_ENABLED"
+        >
+            <option
+                value="true"
+                {% if settings.NOTIFY_ENABLED == "true" %}selected{% endif %}
+            >
+                Ingeschakeld
+            </option>
+
+            <option
+                value="false"
+                {% if settings.NOTIFY_ENABLED == "false" %}selected{% endif %}
+            >
+                Uitgeschakeld
+            </option>
+        </select>
+
+        <label for="NOTIFY_EMAIL_TO">
+            E-mailadres ontvanger
+        </label>
+
+        <input
+            id="NOTIFY_EMAIL_TO"
+            name="NOTIFY_EMAIL_TO"
+            type="email"
+            value="{{ settings.NOTIFY_EMAIL_TO }}"
+            placeholder="naam@example.com"
+        >
+
+    </div>
+
+    <!-- ==================================================
+         SMTP
+         ================================================== -->
+
+    <div class="settings-section">
+
+        <h2>SMTP</h2>
+
+        <p class="settings-description">
+            Server waarmee notificatiemails worden verstuurd.
+        </p>
+
+        <label for="SMTP_HOST">
+            SMTP-server
+        </label>
+
+        <input
+            id="SMTP_HOST"
+            name="SMTP_HOST"
+            type="text"
+            value="{{ settings.SMTP_HOST }}"
+            placeholder="smtp.example.com"
+        >
+
+        <label for="SMTP_PORT">
+            SMTP-poort
+        </label>
+
+        <input
+            id="SMTP_PORT"
+            name="SMTP_PORT"
+            type="number"
+            value="{{ settings.SMTP_PORT }}"
+            min="1"
+            max="65535"
+        >
+
+        <label for="SMTP_USERNAME">
+            SMTP-gebruikersnaam
+        </label>
+
+        <input
+            id="SMTP_USERNAME"
+            name="SMTP_USERNAME"
+            type="text"
+            value="{{ settings.SMTP_USERNAME }}"
+            autocomplete="username"
+        >
+
+        <label for="SMTP_PASSWORD">
+            SMTP-wachtwoord
+        </label>
+
+        <input
+            id="SMTP_PASSWORD"
+            name="SMTP_PASSWORD"
+            type="password"
+            value=""
+            placeholder="{{ settings.SMTP_PASSWORD_PLACEHOLDER }}"
+            autocomplete="new-password"
+        >
+
+        <p class="hint">
+            Laat leeg om het huidige wachtwoord te behouden.
+        </p>
+
+        <label for="SMTP_USE_TLS">
+            TLS-beveiliging
+        </label>
+
+        <select
+            id="SMTP_USE_TLS"
+            name="SMTP_USE_TLS"
+        >
+            <option
+                value="true"
+                {% if settings.SMTP_USE_TLS == "true" %}selected{% endif %}
+            >
+                Ingeschakeld
+            </option>
+
+            <option
+                value="false"
+                {% if settings.SMTP_USE_TLS == "false" %}selected{% endif %}
+            >
+                Uitgeschakeld
+            </option>
+        </select>
+
+        <label for="NOTIFY_FROM">
+            Afzender e-mail
+        </label>
+
+        <input
+            id="NOTIFY_FROM"
+            name="NOTIFY_FROM"
+            type="email"
+            value="{{ settings.NOTIFY_FROM }}"
+            placeholder="sportbit@example.com"
+        >
+
+    </div>
+
+    <!-- ==================================================
+         OPSLAAN
+         ================================================== -->
+
+    <div class="form-actions">
+
+        <a
+            href="{{ url_for('index') }}"
+            class="button"
+        >
+            Annuleren
+        </a>
+
+        <button
+            type="submit"
+            class="button button-primary"
+        >
+            Instellingen opslaan
+        </button>
+
+    </div>
+
+</section>
+
+</form> <!-- ============================================================ TESTMAIL ============================================================ --> <section class="card settings-testmail">
+<div class="settings-testmail-content">
+
+    <div>
+        <h2>Testmail</h2>
+
+        <p>
+            Controleer of de huidige SMTP-instellingen
+            correct werken.
+        </p>
+    </div>
+
+    <form
+        method="post"
+        action="{{ url_for('testmail') }}"
+    >
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+        >
+
+        <button
+            type="submit"
+            class="button button-testmail"
+        >
+            ✉ Testmail versturen
+        </button>
+    </form>
 
 </div>
 
+</section> <!-- ============================================================ MOBIELE ACTIES ============================================================ --> <section class="card settings-mobile-actions">
+<div class="settings-testmail-content">
 
-<form method="post">
+    <div>
+        <h2>Menu</h2>
 
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <p>
+            Snelle toegang tot het logbestand en uitloggen.
+        </p>
+    </div>
 
-    <section class="card settings-card">
+    <div class="settings-mobile-buttons">
 
-
-        <!-- ==================================================
-             LOGIN
-             ================================================== -->
-
-<div class="settings-section">
-
-    <h2>Login</h2>
-
-    <p class="settings-description">
-        Gebruikersnaam en wachtwoord voor toegang tot deze webapp.
-    </p>
-
-
-    <label for="WEB_USERNAME">
-        Gebruikersnaam
-    </label>
-
-    <input
-        id="WEB_USERNAME"
-        name="WEB_USERNAME"
-        type="text"
-        value="{{ settings.WEB_USERNAME }}"
-        autocomplete="username"
-        required
-    >
-
-
-    <label for="WEB_PASSWORD">
-        Wachtwoord
-    </label>
-
-    <input
-        id="WEB_PASSWORD"
-        name="WEB_PASSWORD"
-        type="password"
-        value=""
-        placeholder="{{ settings.WEB_PASSWORD_PLACEHOLDER }}"
-        autocomplete="new-password"
-    >
-
-    <p class="hint">
-        Laat leeg om het huidige wachtwoord te behouden.
-    </p>
-
-</div>
-
-
-
-        <!-- ==================================================
-             CROSFIT ACCOUNT
-             ================================================== -->
-
-        <div class="settings-section">
-
-            <h2>Crossfit Account</h2>
-
-            <p class="settings-description">
-                Inloggegevens voor SportBit van Crossfit Go Personal.
-            </p>
-
-
-            <label for="SPORTBIT_USERNAME">
-                Gebruikersnaam
-            </label>
-
-            <input
-                id="SPORTBIT_USERNAME"
-                name="SPORTBIT_USERNAME"
-                type="text"
-                value="{{ settings.SPORTBIT_USERNAME }}"
-                autocomplete="username"
-            >
-
-
-            <label for="SPORTBIT_PASSWORD">
-                Wachtwoord
-            </label>
-
-            <input
-                id="SPORTBIT_PASSWORD"
-                name="SPORTBIT_PASSWORD"
-                type="password"
-                value=""
-                placeholder="{{ settings.SPORTBIT_PASSWORD_PLACEHOLDER }}"
-                autocomplete="new-password"
-            >
-
-            <p class="hint">
-                Laat leeg om het huidige wachtwoord te behouden.
-            </p>
-
-        </div>
-
-
-        <!-- ==================================================
-             NOTIFICATIES
-             ================================================== -->
-
-        <div class="settings-section">
-
-            <h2>Notificaties</h2>
-
-            <p class="settings-description">
-                Instellingen voor e-mailmeldingen.
-            </p>
-
-
-            <label for="NOTIFY_ENABLED">
-                Notificaties
-            </label>
-
-            <select
-                id="NOTIFY_ENABLED"
-                name="NOTIFY_ENABLED"
-            >
-
-                <option
-                    value="true"
-                    {% if settings.NOTIFY_ENABLED == "true" %}
-                        selected
-                    {% endif %}
-                >
-                    Ingeschakeld
-                </option>
-
-                <option
-                    value="false"
-                    {% if settings.NOTIFY_ENABLED == "false" %}
-                        selected
-                    {% endif %}
-                >
-                    Uitgeschakeld
-                </option>
-
-            </select>
-
-
-            <label for="NOTIFY_EMAIL_TO">
-                E-mailadres ontvanger
-            </label>
-
-            <input
-                id="NOTIFY_EMAIL_TO"
-                name="NOTIFY_EMAIL_TO"
-                type="email"
-                value="{{ settings.NOTIFY_EMAIL_TO }}"
-                placeholder="naam@example.com"
-            >
-
-        </div>
-
-
-<!-- ==================================================
-     SCHEDULER
-     ================================================== -->
-
-<div class="settings-section">
-
-    <h2>Automatische inschrijving</h2>
-
-    <p class="settings-description">
-        Bepaal of de automatische SportBit-scheduler actief is
-        en wanneer de dagelijkse controle wordt uitgevoerd.
-    </p>
-
-
-    <label for="SPORTBIT_SCHEDULER_ENABLED">
-        Automatische inschrijving
-    </label>
-
-    <select
-        id="SPORTBIT_SCHEDULER_ENABLED"
-        name="SPORTBIT_SCHEDULER_ENABLED"
-    >
-
-        <option
-            value="true"
-            {% if settings.SPORTBIT_SCHEDULER_ENABLED == "true" %}
-                selected
-            {% endif %}
+        <a
+            href="{{ url_for('log') }}"
+            class="button button-testmail"
         >
-            Ingeschakeld
-        </option>
-
-        <option
-            value="false"
-            {% if settings.SPORTBIT_SCHEDULER_ENABLED == "false" %}
-                selected
-            {% endif %}
-        >
-            Uitgeschakeld
-        </option>
-
-    </select>
-
-
-    <label for="SPORTBIT_SCHEDULER_TIME">
-        Controle uitvoeren om
-    </label>
-
-    <input
-        id="SPORTBIT_SCHEDULER_TIME"
-        name="SPORTBIT_SCHEDULER_TIME"
-        type="text"
-        value="{{ settings.SPORTBIT_SCHEDULER_TIME }}"
-        pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
-        maxlength="5"
-        inputmode="numeric"
-        required
-    >
-
-    <p class="hint">
-        De scheduler controleert dagelijks rond dit tijdstip
-        welke automatische inschrijvingen uitgevoerd moeten worden.
-    </p>
-
-
-    <label for="SPORTBIT_SCHEDULER_TIMEZONE">
-        Tijdzone
-    </label>
-
-    <select
-        id="SPORTBIT_SCHEDULER_TIMEZONE"
-        name="SPORTBIT_SCHEDULER_TIMEZONE"
-    >
-
-        <option
-            value="Europe/Amsterdam"
-            {% if settings.SPORTBIT_SCHEDULER_TIMEZONE == "Europe/Amsterdam" %}
-                selected
-            {% endif %}
-        >
-            Europe/Amsterdam
-        </option>
-
-        <option
-            value="UTC"
-            {% if settings.SPORTBIT_SCHEDULER_TIMEZONE == "UTC" %}
-                selected
-            {% endif %}
-        >
-            UTC
-        </option>
-
-    </select>
-
-</div>
-
-
-        <!-- ==================================================
-             SMTP
-             ================================================== -->
-
-        <div class="settings-section">
-
-            <h2>SMTP</h2>
-
-            <p class="settings-description">
-                Server waarmee notificatiemails worden verstuurd.
-            </p>
-
-
-            <label for="SMTP_HOST">
-                SMTP-server
-            </label>
-
-            <input
-                id="SMTP_HOST"
-                name="SMTP_HOST"
-                type="text"
-                value="{{ settings.SMTP_HOST }}"
-                placeholder="smtp.example.com"
-            >
-
-
-            <label for="SMTP_PORT">
-                SMTP-poort
-            </label>
-
-            <input
-                id="SMTP_PORT"
-                name="SMTP_PORT"
-                type="number"
-                value="{{ settings.SMTP_PORT }}"
-                min="1"
-                max="65535"
-            >
-
-
-            <label for="SMTP_USERNAME">
-                SMTP-gebruikersnaam
-            </label>
-
-            <input
-                id="SMTP_USERNAME"
-                name="SMTP_USERNAME"
-                type="text"
-                value="{{ settings.SMTP_USERNAME }}"
-                autocomplete="username"
-            >
-
-
-            <label for="SMTP_PASSWORD">
-                SMTP-wachtwoord
-            </label>
-
-            <input
-                id="SMTP_PASSWORD"
-                name="SMTP_PASSWORD"
-                type="password"
-                value=""
-                placeholder="{{ settings.SMTP_PASSWORD_PLACEHOLDER }}"
-                autocomplete="new-password"
-            >
-
-            <p class="hint">
-                Laat leeg om het huidige wachtwoord te behouden.
-            </p>
-
-
-            <label for="SMTP_USE_TLS">
-                TLS-beveiliging
-            </label>
-
-            <select
-                id="SMTP_USE_TLS"
-                name="SMTP_USE_TLS"
-            >
-
-                <option
-                    value="true"
-                    {% if settings.SMTP_USE_TLS == "true" %}
-                        selected
-                    {% endif %}
-                >
-                    Ingeschakeld
-                </option>
-
-                <option
-                    value="false"
-                    {% if settings.SMTP_USE_TLS == "false" %}
-                        selected
-                    {% endif %}
-                >
-                    Uitgeschakeld
-                </option>
-
-            </select>
-
-
-            <label for="NOTIFY_FROM">
-                Afzender e-mail
-            </label>
-
-            <input
-                id="NOTIFY_FROM"
-                name="NOTIFY_FROM"
-                type="email"
-                value="{{ settings.NOTIFY_FROM }}"
-                placeholder="sportbit@example.com"
-            >
-
-        </div>
-
-
-        <!-- ==================================================
-             OPSLAAN
-             ================================================== -->
-
-        <div class="form-actions">
-
-            <a
-                href="{{ url_for('index') }}"
-                class="button"
-            >
-                Annuleren
-            </a>
-
-            <button
-                type="submit"
-                class="button button-primary"
-            >
-                Instellingen opslaan
-            </button>
-
-        </div>
-
-    </section>
-
-</form>
-
-
-<!-- ============================================================
-     TESTMAIL
-     ============================================================ -->
-
-<section class="card settings-testmail">
-
-    <div class="settings-testmail-content">
-
-        <div>
-
-            <h2>Testmail</h2>
-
-            <p>
-                Controleer of de huidige SMTP-instellingen
-                correct werken.
-            </p>
-
-        </div>
-
+            ≡ Logbestand
+        </a>
 
         <form
             method="post"
-            action="{{ url_for('testmail') }}"
+            action="{{ url_for('logout') }}"
+            class="settings-logout-form"
         >
-
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token() }}"
+            >
 
             <button
                 type="submit"
-                class="button button-testmail"
+                class="button button-danger"
             >
-                ✉ Testmail versturen
+                ↪ Uitloggen
             </button>
-
         </form>
 
     </div>
 
-</section>
-
-<!-- ============================================================
-     MOBIELE ACTIES
-     ============================================================ -->
-
-<section class="card settings-mobile-actions">
-
-    <div class="settings-testmail-content">
-
-        <div>
-
-            <h2>Menu</h2>
-
-            <p>
-                Snelle toegang tot het logbestand en uitloggen.
-            </p>
-
-        </div>
-
-        <div class="settings-mobile-buttons">
-
-            <a
-                href="{{ url_for('log') }}"
-                class="button button-testmail"
-            >
-                ≡ Logbestand
-            </a>
-
-            <a
-                href="{{ url_for('logout') }}"
-                class="button button-danger"
-            >
-                ↪ Uitloggen
-            </a>
-
-        </div>
-
-    </div>
+</div>
 
 </section>
-
 
 {% endblock %}

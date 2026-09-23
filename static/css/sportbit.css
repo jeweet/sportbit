@@ -17,6 +17,8 @@
     --success: #8bc34a;
     --warning: #f0b429;
     --danger: #ef4444;
+    --header-height: 90px;
+    --bottom-nav-height: 100px;
 }
 
 * {
@@ -25,7 +27,6 @@
 
 html {
     background: var(--black);
-    overscroll-behavior: none;
 }
 
 body {
@@ -73,8 +74,10 @@ select {
    ============================================================ */
 
 .header {
-    position: sticky;
+    position: fixed;
     top: 0;
+    left: 0;
+    right: 0;
     z-index: 1000;
 
     background: #050505;
@@ -318,21 +321,24 @@ select {
    ============================================================ */
 
 .container {
-    height: 100dvh;
     max-width: 1100px;
-
     margin: 0 auto;
-    padding: 35px 20px 60px;
 
-    overflow-x: hidden;
-    overflow-y: scroll;
+    padding-top: calc(
+        var(--header-height) + 35px
+    );
 
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
+    padding-left: 20px;
+    padding-right: 20px;
 
     padding-bottom: calc(
-        164px + env(safe-area-inset-bottom)
+        var(--bottom-nav-height) +
+        env(safe-area-inset-bottom) +
+        35px
     );
+
+    box-sizing: border-box;
+    overflow-x: hidden;
 }
 
 .page-title {
@@ -518,29 +524,30 @@ select {
 .lesson-unregister {
     box-sizing: border-box;
 
-    width: 31px;
     min-width: 31px;
     height: 31px;
     min-height: 31px;
 
     margin: 0;
-    padding: 0;
+    padding: 7px 11px;
 
     display: inline-flex;
     align-items: center;
     justify-content: center;
 
     border: 1px solid #572323;
-    border-radius: .35rem;
 
     background: transparent;
     color: #ff7777;
 
-    font-size: 18px;
-    font-weight: 600;
-    line-height: 1;
-
+    text-decoration: none;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .8px;
     cursor: pointer;
+    line-height: 1;
 }
 
 .lesson-unregister:hover {
@@ -930,6 +937,15 @@ form select option {
     margin-top: 20px;
     padding: 18px;
 
+    height: min(60vh, 600px);
+    max-height: calc(100vh - 260px);
+    min-height: 220px;
+
+    overflow-y: auto;
+    overflow-x: auto;
+
+    box-sizing: border-box;
+
     background: #050505;
 
     border: 1px solid var(--border);
@@ -939,13 +955,26 @@ form select option {
 
     white-space: pre-wrap;
     word-break: break-word;
-    overflow-x: auto;
 
     font-family: "Courier New", monospace;
     font-size: 12px;
     line-height: 1.55;
+
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 
+/* Mobiel */
+@media (max-width: 600px) {
+    .log {
+        height: calc(100vh - 300px);
+        max-height: calc(100vh - 300px);
+        min-height: 220px;
+
+        padding: 12px;
+        font-size: 11px;
+    }
+}
 
 /* ============================================================
    EMPTY
@@ -1214,8 +1243,6 @@ form select option {
         width: 100%;
         height: 100%;
         margin: 0;
-
-        overflow: hidden;
     }
 
     body {
@@ -1262,11 +1289,6 @@ form select option {
         min-height: 100dvh;
 
         padding: 24px 12px 45px;
-
-        overflow-x: hidden;
-
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior-y: contain;
 
         padding-bottom: calc(
             94px + env(safe-area-inset-bottom)

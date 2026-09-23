@@ -2,32 +2,33 @@
 
 {% block content %}
 
-<div class="page-title">
+<div class="page-title"> <h1>Log</h1> <p>SportBit-activiteit</p> </div> <section class="card">
+<p
+    id="log-refresh-status"
+    aria-live="polite"
+>
+    Live log wordt geladen...
+</p>
 
-    <h1>
-        Logbestand
-    </h1>
-
-    <p>
-        SportBit activiteit
-    </p>
-
+<div
+    id="log-container"
+    class="log-container"
+>
+    <pre
+        id="live-log"
+        class="log"
+        data-url="{{ url_for('api_log') }}"
+        aria-live="polite"
+    >{{ output }}</pre>
 </div>
 
+<a
+    href="{{ url_for('index') }}"
+    class="button"
+>
+    Terug
+</a>
 
-<section class="card">
-
-    <pre class="log">{{ output }}</pre>
-
-    <br>
-
-    <a
-        href="{{ url_for('index') }}"
-        class="button"
-    >
-        Terug
-    </a>
-
-</section>
+</section> <script src="{{ url_for('static', filename='js/log.js') }}" defer ></script>
 
 {% endblock %}

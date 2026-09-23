@@ -12,3 +12,5 @@ sportbit.conf
 .DS_Store
 
 .sportbit_automation_state.json
+
+logs/

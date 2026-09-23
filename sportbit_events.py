@@ -225,6 +225,87 @@ def zoek_event(
     return None
 
 
+
+def beschikbare_lessen_op_dag_en_tijd(
+    session,
+    datum,
+    tijd,
+):
+    """Geef de beschikbare SportBit-lessen voor een datum en tijd."""
+
+    tijd_obj = parse_tijd(tijd)
+
+    response = session.get(
+        sportbit_api.EVENTS_URL,
+        params={
+            "datum": datum.isoformat()
+        },
+        headers={
+            "Origin": sportbit_api.BASE_URL,
+            "Referer": f"{sportbit_api.BASE_URL}/web/nl/",
+        },
+        timeout=15,
+    )
+
+    response.raise_for_status()
+
+    try:
+        data = response.json()
+    except ValueError:
+        raise RuntimeError(
+            "SportBit gaf geen geldige JSON terug."
+        )
+
+    events = extract_events(data)
+
+    if events is None:
+        raise RuntimeError(
+            "Onverwachte events-response. "
+            f"Type: {type(data).__name__}"
+        )
+
+    resultaten = []
+    geziene_titels = set()
+
+    for event in events:
+
+        titel = str(
+            event.get("titel", "")
+        ).strip()
+
+        start_string = event.get("start")
+
+        if not titel or not start_string:
+            continue
+
+        try:
+            start = datetime.fromisoformat(
+                start_string
+            )
+        except (
+            ValueError,
+            TypeError,
+        ):
+            continue
+
+        if (
+            start.hour == tijd_obj.hour
+            and start.minute == tijd_obj.minute
+        ):
+            sleutel = titel.casefold()
+
+            if sleutel not in geziene_titels:
+                geziene_titels.add(sleutel)
+                resultaten.append(titel)
+
+    return sorted(
+        resultaten,
+        key=str.casefold,
+    )
+
+
+
+
 def maak_status(
     code,
     text,

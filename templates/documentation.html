@@ -4,151 +4,264 @@
 
 <div class="page-title"> <h1>Uitleg</h1>
 <p>
-    Hoe de automatische SportBit-inschrijvingen
-    en notificaties werken.
+    Hoe de automatische SportBit-inschrijvingen,
+    controles en notificaties werken.
 </p>
 
 </div> <section class="card documentation">
 <h2>1. Automatische inschrijving</h2>
 
 <p>
-    Voor iedere inschrijving uit
-    <code>sportbit.conf</code> wordt de eerstvolgende
-    les op de ingestelde weekdag en tijd bepaald.
-    De automatische registratie is gericht op de
-    les precies één week later.
+    Voor iedere inschrijving in <code>sportbit.conf</code> wordt op basis
+    van de ingestelde <strong>weekdag</strong>, <strong>tijd</strong>
+    en <strong>les</strong> bepaald welke les als volgende moet worden
+    gecontroleerd.
 </p>
 
 <p>
-    Rond <strong>00:01</strong> op de dag waarop de
-    inschrijving opent wordt SportBit gecontroleerd.
-    De les wordt gezocht op
-    <strong>lesnaam + tijd</strong>.
-    Het event-ID wordt dus niet vooraf vastgelegd.
-</p>
-
-<h2>2. Dagelijkse controle om 00:01</h2>
-
-<p>
-    De webapp heeft een achtergrondcontrole die
-    dagelijks rond 00:01 kijkt voor welke
-    geconfigureerde lessen die dag de boekingsperiode
-    opent.
+    De automatische inschrijving zoekt het actuele SportBit-event op
+    basis van <strong>datum + lesnaam + tijd</strong>. Een event-ID wordt
+    dus niet vooraf in de configuratie opgeslagen.
 </p>
 
 <p>
-    Als de verwachte les niet bestaat, bijvoorbeeld
-    omdat een WOD is vervangen door een andere les,
-    wordt geen inschrijving uitgevoerd en kan direct
-    een notificatiemail worden verstuurd.
+    Hierdoor kan de webapp ook omgaan met nieuwe event-ID's wanneer
+    SportBit lessen opnieuw publiceert.
+</p>
+
+
+<h2>2. Automatische controle</h2>
+
+<p>
+    De webapp bevat een ingebouwde scheduler die op de achtergrond
+    controleert of er voor een geconfigureerde inschrijving actie nodig
+    is.
 </p>
 
 <p>
-    Een technische fout bij het ophalen van SportBit
-    wordt niet automatisch als "les ontbreekt"
-    beschouwd.
+    De scheduler wordt ingesteld via <code>.env</code>, bijvoorbeeld:
 </p>
 
-<h2>3. Wanneer wordt een e-mail gestuurd?</h2>
+<pre><code>
+SPORTBIT_SCHEDULER_ENABLED=true
+SPORTBIT_SCHEDULER_TIME=00:01
+SPORTBIT_SCHEDULER_TIMEZONE=Europe/Amsterdam</code></pre>
+
+<p>
+    Wanneer de scheduler is ingeschakeld, wordt rond het ingestelde
+    tijdstip gecontroleerd welke lessen moeten worden verwerkt.
+</p>
+
+
+<h2>3. Wanneer wordt ingeschreven?</h2>
+
+<p>
+    Eerst wordt gecontroleerd of de inschrijving voor de betreffende
+    datum al geopend is.
+</p>
+
+<p>
+    Is de inschrijving nog gesloten, dan wordt er <strong>geen
+    inschrijfpoging</strong> uitgevoerd. Dit is geen fout: de les kan
+    later opnieuw worden gecontroleerd.
+</p>
+
+<p>
+    Zodra inschrijven mogelijk is, wordt bij SportBit ingelogd en wordt
+    de les gezocht op:
+</p>
 
 <ul>
-    <li>
-        <strong>Les ontbreekt:</strong>
-        de dagelijkse controle vindt de verwachte les
-        niet op de doel-datum en het ingestelde tijdstip.
-    </li>
-
-    <li>
-        <strong>Inschrijving mislukt:</strong>
-        een daadwerkelijke automatische inschrijfpoging
-        levert een fout op of de inschrijving kan niet
-        worden bevestigd.
-    </li>
-
-    <li>
-        <strong>Testmail:</strong>
-        via <strong>Stuur testmail</strong> kan handmatig
-        worden gecontroleerd of de SMTP-configuratie werkt.
-    </li>
+    <li>de doel-datum;</li>
+    <li>de ingestelde lesnaam;</li>
+    <li>de ingestelde begintijd.</li>
 </ul>
-
-<h2>4. Wanneer wordt géén melding gestuurd?</h2>
-
-<ul>
-    <li>
-        Als je al bent ingeschreven.
-    </li>
-
-    <li>
-        Als je al op de wachtlijst staat.
-    </li>
-
-    <li>
-        Als de boekingsperiode nog niet geopend is.
-    </li>
-
-    <li>
-        Als een tijdelijke technische fout niet kan
-        worden vastgesteld als een ontbrekende les.
-    </li>
-</ul>
-
-<h2>5. Dubbele meldingen voorkomen</h2>
 
 <p>
-    Voor een ontbrekende les wordt per inschrijving
-    en doel-datum maximaal één melding verstuurd.
-    De registratie hiervan staat in
+    Wordt het juiste event gevonden, dan wordt geprobeerd de gebruiker
+    in te schrijven.
+</p>
+
+
+<h2>4. Als de les niet bestaat</h2>
+
+<p>
+    Wanneer het verwachte SportBit-event niet wordt gevonden, wordt er
+    geen inschrijving uitgevoerd.
+</p>
+
+<p>
+    Dit kan bijvoorbeeld gebeuren wanneer een vaste les op een bepaalde
+    datum is vervangen, geannuleerd of nog niet door SportBit is
+    gepubliceerd.
+</p>
+
+<p>
+    Als notificaties zijn ingeschakeld, kan hiervoor een e-mail worden
+    verstuurd met de inschrijving, les, datum en tijd.
+</p>
+
+<p>
+    Voor een ontbrekende les wordt maximaal één melding per
+    <strong>inschrijving + doel-datum + tijd + les</strong> verstuurd.
+    Deze registratie wordt opgeslagen in
     <code>notify_state.json</code>.
-    Hierdoor veroorzaakt een herhaalde controle
-    niet steeds opnieuw dezelfde mail.
 </p>
 
-<h2>6. E-mailconfiguratie</h2>
+
+<h2>5. Als de inschrijving mislukt</h2>
 
 <p>
-    De notificaties gebruiken de SMTP-instellingen
-    uit <code>.env</code>.
-    De module <code>notify.py</code> bevat uitsluitend
-    de e-mailafhandeling.
-    De SportBit- en Flask-logica staat in de
-    afzonderlijke modules.
+    Een gevonden les kan alsnog niet succesvol worden ingeschreven.
+    Bijvoorbeeld wanneer SportBit de inschrijving niet bevestigt of
+    wanneer tijdens de daadwerkelijke inschrijfpoging een fout optreedt.
 </p>
 
-<h2>7. Statussen in de webapp</h2>
+<p>
+    Als notificaties zijn ingeschakeld, wordt hiervoor een aparte
+    e-mail verstuurd met:
+</p>
+
+<ul>
+    <li>de betreffende inschrijving;</li>
+    <li>de les;</li>
+    <li>de datum en tijd;</li>
+    <li>de reden van de fout;</li>
+    <li>eventuele SportBit-output.</li>
+</ul>
+
+<p>
+    Deze notificatie gebruikt een andere functie dan de melding voor een
+    ontbrekende les.
+</p>
+
+
+<h2>6. Wanneer wordt géén foutmelding verstuurd?</h2>
+
+<ul>
+    <li>
+        <strong>Inschrijving nog gesloten:</strong>
+        er wordt nog geen inschrijfpoging gedaan.
+    </li>
+
+    <li>
+        <strong>Al ingeschreven:</strong>
+        SportBit meldt dat de registratie al bestaat.
+    </li>
+
+    <li>
+        <strong>Al op de wachtlijst:</strong>
+        de wachtlijststatus wordt als geldige actuele status behandeld.
+    </li>
+</ul>
+
+
+<h2>7. Automatische statuscontrole</h2>
+
+<p>
+    De webapp controleert de eerstvolgende lessen ook voor het
+    overzichtsscherm. Deze resultaten worden tijdelijk gecachet om
+    onnodige herhaalde verzoeken naar SportBit te voorkomen.
+</p>
+
+<p>
+    De zichtbare status van een gevonden event wordt als volgt bepaald:
+</p>
 
 <ul>
     <li>
         <strong>INGESCHREVEN</strong> —
-        SportBit meldt dat de registratie gelukt is.
+        SportBit meldt dat de gebruiker is ingeschreven.
     </li>
 
     <li>
         <strong>WACHTLIJST</strong> —
-        je staat op de wachtlijst.
-    </li>
-
-    <li>
-        <strong>NIET INGESCHREVEN</strong> —
-        de les bestaat en registratie is mogelijk.
+        SportBit meldt dat de gebruiker op de wachtlijst staat.
+        Deze status heeft voorrang wanneer SportBit zowel
+        <code>opWachtlijst</code> als <code>aangemeld</code> teruggeeft.
     </li>
 
     <li>
         <strong>INSCHRIJVING GESLOTEN</strong> —
-        de les bestaat, maar het boekingsmoment is nog
-        niet aangebroken.
+        het event bestaat, maar het inschrijfmoment is nog niet geopend.
+    </li>
+
+    <li>
+        <strong>NIET INGESCHREVEN</strong> —
+        het event bestaat en inschrijven is mogelijk, maar de gebruiker
+        staat nog niet ingeschreven.
     </li>
 
     <li>
         <strong>GEEN EVENT</strong> —
-        de verwachte les is niet gevonden.
-    </li>
-
-    <li>
-        <strong>STATUS ONBEKEND</strong> —
-        de controle kon niet betrouwbaar worden uitgevoerd.
+        het verwachte event is niet gevonden.
     </li>
 </ul>
+
+
+<h2>8. Handmatig uitschrijven</h2>
+
+<p>
+    Wanneer je jezelf via de webapp voor een concrete les uitschrijft,
+    wordt die specifieke doel-les als handmatig overgeslagen geregistreerd.
+</p>
+
+<p>
+    De automatische scheduler probeert diezelfde les daarna niet opnieuw
+    in te schrijven.
+</p>
+
+<p>
+    Dit geldt alleen voor het betreffende concrete doelmoment. Een
+    volgende wekelijkse les vormt een nieuw doelmoment.
+</p>
+
+
+<h2>9. E-mailnotificaties</h2>
+
+<p>
+    De e-mailafhandeling staat los van de Flask- en SportBit-logica in
+    <code>notify.py</code>.
+</p>
+
+<p>
+    Notificaties kunnen worden ingeschakeld met:
+</p>
+
+<pre><code>
+NOTIFY_ENABLED=true
+NOTIFY_EMAIL_TO=jij@example.com
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=jij@example.com
+SMTP_PASSWORD=...
+SMTP_USE_TLS=true</code></pre>
+
+<p>
+    Met <code>NOTIFY_FROM</code> kan eventueel een afzonderlijk
+    afzenderadres worden ingesteld. Als dit niet is ingesteld, wordt
+    <code>SMTP_USERNAME</code> als afzender gebruikt.
+</p>
+
+<p>
+    Via <strong>Stuur testmail</strong> kan worden gecontroleerd of de
+    SMTP-configuratie werkt.
+</p>
+
+
+<h2>10. Log</h2>
+
+<p>
+    De webapp houdt een log bij van belangrijke SportBit-activiteiten,
+    automatische controles en fouten.
+</p>
+
+<p>
+    De pagina <strong>Log</strong> toont dit log live, zodat je kunt
+    controleren wat de automatische inschrijving heeft uitgevoerd en
+    eventuele problemen kunt terugvinden.
+</p>
+
 
 <div class="form-actions">
     <a

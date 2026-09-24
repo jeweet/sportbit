@@ -468,6 +468,39 @@ select {
     letter-spacing: .8px;
 }
 
+.mobile-collapse-icon {
+    display: none;
+}
+
+@media (max-width: 699px) {
+
+    .mobile-collapse-toggle {
+        position: relative;
+        cursor: pointer;
+        display: block;
+    }
+
+    .mobile-collapse-icon {
+        display: block;
+        position: absolute;
+        top: 4px;
+        right: 4px;
+
+        font-size: 28px;
+        line-height: 1;
+        font-weight: 600;
+
+        transition: transform 0.2s ease;
+    }
+
+    .card.mobile-collapsed .actions {
+        display: none;
+    }
+
+    .card.mobile-collapsed .mobile-collapse-icon {
+        transform: rotate(-90deg);
+    }
+}
 
 /* ============================================================
    VOLGENDE LESSEN
@@ -510,6 +543,12 @@ select {
     color: var(--gray-2);
 
     font-size: 11px;
+}
+
+.buddy-icon {
+    width: 16px;
+    height: 16px;
+    vertical-align: -3px;
 }
 
 .next-lesson-status {
@@ -949,7 +988,6 @@ form select option {
     background: #050505;
 
     border: 1px solid var(--border);
-    border-left: 3px solid var(--green);
 
     color: #d6d6d6;
 

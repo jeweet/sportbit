@@ -8,51 +8,218 @@
         return;
     }
 
-    let timer = null;
+    /*
+     * Cache per dag.
+     *
+     * Bijvoorbeeld:
+     * {
+     *     maandag: {
+     *         "07:00": ["WOD"],
+     *         "18:00": ["WOD", "Olympic Weightlifting"]
+     *     }
+     * }
+     */
+    const dagCache = new Map();
+
     let requestId = 0;
 
-    async function laadLessen() {
-        const dag = dagElement.value;
-        const tijd = tijdElement.value;
+    const huidigeTijd =
+        tijdElement.dataset.currentTijd || "";
 
-        lesElement.innerHTML = "";
+    const huidigeLes =
+        lesElement.dataset.currentLes || "";
 
-        if (!dag || !tijd) {
-            lesElement.disabled = true;
+    function toonStatus(tekst) {
+        if (statusElement) {
+            statusElement.textContent = tekst;
+        }
+    }
 
+    function laadTijden(data, geselecteerdeTijd = "") {
+        tijdElement.innerHTML = "";
+
+        const tijden = Object.keys(data);
+
+        if (!tijden.length) {
             const option = document.createElement("option");
             option.value = "";
-            option.textContent = "Voer dag en tijd in...";
-            lesElement.appendChild(option);
+            option.textContent =
+                "Geen tijden beschikbaar";
 
-            if (statusElement) {
-                statusElement.textContent = "";
-            }
+            tijdElement.appendChild(option);
+            tijdElement.disabled = true;
 
             return;
         }
 
-        lesElement.disabled = true;
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent =
+            "Selecteer een tijd...";
 
-        const loadingOption = document.createElement("option");
-        loadingOption.value = "";
-        loadingOption.textContent = "Lessen laden...";
-        lesElement.appendChild(loadingOption);
+        tijdElement.appendChild(placeholder);
 
-        if (statusElement) {
-            statusElement.textContent = "";
+        tijden.forEach((tijd) => {
+            const option = document.createElement("option");
+
+            option.value = tijd;
+            option.textContent = tijd;
+
+            if (tijd === geselecteerdeTijd) {
+                option.selected = true;
+            }
+
+            tijdElement.appendChild(option);
+        });
+
+        tijdElement.disabled = false;
+    }
+
+    function laadLessen(data, tijd, geselecteerdeLes = "") {
+        lesElement.innerHTML = "";
+
+        const lessen = data[tijd] || [];
+
+        if (!tijd) {
+            const option = document.createElement("option");
+            option.value = "";
+            option.textContent =
+                "Kies eerst een tijd...";
+
+            lesElement.appendChild(option);
+            lesElement.disabled = true;
+
+            return;
+        }
+
+        if (!lessen.length) {
+            const option = document.createElement("option");
+            option.value = "";
+            option.textContent =
+                "Geen lessen beschikbaar";
+
+            lesElement.appendChild(option);
+            lesElement.disabled = true;
+
+            return;
+        }
+
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent =
+            "Selecteer een les...";
+
+        lesElement.appendChild(placeholder);
+
+        lessen.forEach((les) => {
+            const option = document.createElement("option");
+
+            option.value = les;
+            option.textContent = les;
+
+            if (les === geselecteerdeLes) {
+                option.selected = true;
+            }
+
+            lesElement.appendChild(option);
+        });
+
+        lesElement.disabled = false;
+    }
+
+    function toonDagData(dag, geselecteerdeTijd = "", geselecteerdeLes = "") {
+        const data = dagCache.get(dag);
+
+        if (!data) {
+            return;
+        }
+
+        laadTijden(
+            data,
+            geselecteerdeTijd
+        );
+
+        const tijd =
+            geselecteerdeTijd && data[geselecteerdeTijd]
+                ? geselecteerdeTijd
+                : "";
+
+        laadLessen(
+            data,
+            tijd,
+            geselecteerdeLes
+        );
+
+        if (Object.keys(data).length) {
+            const aantalTijden =
+                Object.keys(data).length;
+
+            toonStatus(
+                `${aantalTijden} tijdstip${
+                    aantalTijden === 1 ? "" : "pen"
+                } beschikbaar.`
+            );
+        }
+    }
+
+    async function laadDag(dag, geselecteerdeTijd = "", geselecteerdeLes = "") {
+        if (!dag) {
+            tijdElement.innerHTML = "";
+            lesElement.innerHTML = "";
+
+            tijdElement.disabled = true;
+            lesElement.disabled = true;
+
+            toonStatus("");
+
+            return;
+        }
+
+        /*
+         * Dag al geladen?
+         * Dan absoluut geen nieuwe API-call.
+         */
+        if (dagCache.has(dag)) {
+            toonDagData(
+                dag,
+                geselecteerdeTijd,
+                geselecteerdeLes
+            );
+
+            return;
         }
 
         const currentRequest = ++requestId;
 
+        tijdElement.disabled = true;
+        lesElement.disabled = true;
+
+        tijdElement.innerHTML = "";
+        lesElement.innerHTML = "";
+
+        const loadingTime = document.createElement("option");
+        loadingTime.value = "";
+        loadingTime.textContent =
+            "Tijden laden...";
+
+        tijdElement.appendChild(loadingTime);
+
+        const loadingLes = document.createElement("option");
+        loadingLes.value = "";
+        loadingLes.textContent =
+            "Lessen laden...";
+
+        lesElement.appendChild(loadingLes);
+
+        toonStatus("SportBit wordt gecontroleerd...");
+
         try {
             const response = await fetch(
-                `/api/lessen?dag=${encodeURIComponent(dag)}&tijd=${encodeURIComponent(tijd)}`,
+                `/api/lessen?dag=${encodeURIComponent(dag)}`,
                 {
                     headers: {
                         "Accept": "application/json"
-                    },
-                    cache: "no-store"
+                    }
                 }
             );
 
@@ -68,103 +235,103 @@
                 );
             }
 
-            const lessen = data.lessen || [];
-            const huidigeLes =
-                lesElement.dataset.currentLes || "";
+            const lessen = data.lessen || {};
 
-            lesElement.innerHTML = "";
+            dagCache.set(
+                dag,
+                lessen
+            );
 
-            if (!lessen.length) {
-                const option = document.createElement("option");
-                option.value = "";
-                option.textContent =
-                    "Geen lessen beschikbaar op dit tijdstip";
-                lesElement.appendChild(option);
-
-                if (statusElement) {
-                    statusElement.textContent =
-                        "Geen lessen gevonden voor deze dag en tijd.";
-                }
-
-                return;
-            }
-
-            const placeholder = document.createElement("option");
-            placeholder.value = "";
-            placeholder.textContent = "Selecteer een les...";
-            lesElement.appendChild(placeholder);
-
-            lessen.forEach((les) => {
-                const option = document.createElement("option");
-
-                option.value = les;
-                option.textContent = les;
-
-                if (les === huidigeLes) {
-                    option.selected = true;
-                }
-
-                lesElement.appendChild(option);
-            });
-
-            lesElement.disabled = false;
-
-            if (statusElement) {
-                statusElement.textContent =
-                    `${lessen.length} les${lessen.length === 1 ? "" : "sen"} beschikbaar.`;
-            }
+            toonDagData(
+                dag,
+                geselecteerdeTijd,
+                geselecteerdeLes
+            );
 
         } catch (error) {
             if (currentRequest !== requestId) {
                 return;
             }
 
+            tijdElement.innerHTML = "";
             lesElement.innerHTML = "";
 
-            const option = document.createElement("option");
-            option.value = "";
-            option.textContent =
-                "Lessen konden niet worden geladen";
-            lesElement.appendChild(option);
+            const timeOption = document.createElement("option");
+            timeOption.value = "";
+            timeOption.textContent =
+                "Tijden konden niet worden geladen";
 
-            if (statusElement) {
-                statusElement.textContent =
-                    "Lessen konden niet worden opgehaald.";
-            }
+            tijdElement.appendChild(timeOption);
+
+            const lesOption = document.createElement("option");
+            lesOption.value = "";
+            lesOption.textContent =
+                "Lessen konden niet worden geladen";
+
+            lesElement.appendChild(lesOption);
+
+            tijdElement.disabled = true;
+            lesElement.disabled = true;
+
+            toonStatus(
+                "De lessen konden niet worden opgehaald."
+            );
 
             console.error(
-                "Lessen ophalen mislukt:",
+                "SportBit-dagdata ophalen mislukt:",
                 error
             );
         }
     }
 
-    function wijziging() {
-        clearTimeout(timer);
-
-        timer = setTimeout(
-            laadLessen,
-            250
-        );
-    }
-
     dagElement.addEventListener(
         "change",
-        wijziging
+        () => {
+            laadDag(
+                dagElement.value
+            );
+        }
     );
 
     tijdElement.addEventListener(
         "change",
-        wijziging
+        () => {
+            const dag = dagElement.value;
+            const tijd = tijdElement.value;
+            const data = dagCache.get(dag);
+
+            if (!data) {
+                return;
+            }
+
+            /*
+             * Belangrijk:
+             * hier wordt géén API-call gedaan.
+             */
+            laadLessen(
+                data,
+                tijd
+            );
+
+            const lessen =
+                data[tijd] || [];
+
+            toonStatus(
+                `${lessen.length} les${
+                    lessen.length === 1 ? "" : "sen"
+                } beschikbaar.`
+            );
+        }
     );
 
-    tijdElement.addEventListener(
-        "input",
-        wijziging
+    /*
+     * Bij openen:
+     * bestaande dag/tijd/les herstellen.
+     */
+    laadDag(
+        dagElement.value,
+        huidigeTijd,
+        huidigeLes
     );
-
-    // Bij bewerken meteen de bestaande
-    // combinatie controleren.
-    laadLessen();
 
 })();

@@ -334,6 +334,7 @@ from sportbit_dates import (
 from sportbit_events import (
     automatische_volgende_twee_controle,
     beschikbare_lessen_op_dag_en_tijd,
+    beschikbare_lessen_op_dag,
 )
 
 import sportbit_api
@@ -1158,67 +1159,43 @@ def bewerk_inschrijving(section):
 
 @app.get("/api/lessen")
 def api_lessen():
-
-    dag = (
-        request.args.get("dag", "")
-        .strip()
-        .lower()
-    )
-
-    tijd = (
-        request.args.get("tijd", "")
-        .strip()
-        .strip('"')
-        .strip("'")
-    )
+    dag = request.args.get("dag", "").strip().lower()
 
     if dag not in DAGEN:
         return jsonify({
             "lessen": [],
-            "error": "Ongeldige dag."
+            "error": "Ongeldige dag.",
         }), 400
 
     try:
-        schrijf_log(f"API LESSEN DEBUG: dag={dag!r} tijd={tijd!r}", "info")
-        tijd_obj = parse_tijd(tijd)
-    except ValueError:
-        return jsonify({
-            "lessen": [],
-            "error": "Ongeldige tijd."
-        }), 400
+        datum = volgende_datum(
+            dag,
+            "00:00",
+        ).date()
 
-    # Eerstvolgende datum waarop deze weekdag voorkomt.
-    datum = volgende_datum(
-        dag,
-        tijd_obj.strftime("%H:%M")
-    ).date()
+        session = sportbit_api.create_session()
+        sportbit_api.login(session)
 
-    try:
-      session = sportbit_api.create_session()
-      sportbit_api.login(session)
-
-      lessen = beschikbare_lessen_op_dag_en_tijd(
-         session=session,
-         datum=datum,
-         tijd=tijd_obj.strftime("%H:%M"),
-      )    
+        lessen = beschikbare_lessen_op_dag(
+            session=session,
+            datum=datum,
+        )
 
     except Exception as error:
         schrijf_log(
-            f"LESSEN OPHALEN MISLUKT: "
-            f"dag={dag} tijd={tijd} fout={error}",
+            f"LESSEN OPHALEN MISLUKT: dag={dag} fout={error}",
             "error",
         )
 
         return jsonify({
             "lessen": [],
-            "error": "Lessen konden niet worden opgehaald."
+            "error": "Lessen konden niet worden opgehaald.",
         }), 500
 
     return jsonify({
-        "lessen": lessen
+        "datum": datum.isoformat(),
+        "lessen": lessen,
     })
-
 
 # ============================================================
 # VERWIJDEREN

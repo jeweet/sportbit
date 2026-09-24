@@ -304,6 +304,74 @@ def beschikbare_lessen_op_dag_en_tijd(
     )
 
 
+def beschikbare_lessen_op_dag(session, datum):
+    """Geef alle beschikbare lessen per tijdstip voor een datum."""
+
+    response = session.get(
+        sportbit_api.EVENTS_URL,
+        params={"datum": datum.isoformat()},
+        headers={
+            "Origin": sportbit_api.BASE_URL,
+            "Referer": f"{sportbit_api.BASE_URL}/web/nl/",
+        },
+        timeout=15,
+    )
+
+    response.raise_for_status()
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise RuntimeError(
+            "SportBit gaf geen geldige JSON terug."
+        ) from exc
+
+    events = extract_events(data)
+
+    if events is None:
+        raise RuntimeError(
+            f"Onverwachte events-response. "
+            f"Type: {type(data).__name__}"
+        )
+
+    resultaat = {}
+
+    for event in events:
+        titel = str(
+            event.get("titel", "")
+        ).strip()
+
+        start_string = event.get("start")
+
+        if not titel or not start_string:
+            continue
+
+        try:
+            start = datetime.fromisoformat(start_string)
+        except (ValueError, TypeError):
+            continue
+
+        tijd = start.strftime("%H:%M")
+
+        resultaat.setdefault(tijd, [])
+
+        if not any(
+            bestaande.casefold() == titel.casefold()
+            for bestaande in resultaat[tijd]
+        ):
+            resultaat[tijd].append(titel)
+
+    for tijd in resultaat:
+        resultaat[tijd].sort(
+            key=str.casefold
+        )
+
+    return dict(
+        sorted(resultaat.items())
+    )
+
+
+
 
 
 def maak_status(

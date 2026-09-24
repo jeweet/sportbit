@@ -2,7 +2,15 @@
 
 {% block content %}
 
-<script src="{{ url_for('static', filename='js/edit.js') }}" defer ></script> <div class="page-title"> <h1> {% if nieuw %} Toevoegen {% else %} Bewerken {% endif %} </h1>
+<script src="{{ url_for('static', filename='js/edit.js') }}" defer ></script> <div class="page-title">
+<h1>
+    {% if nieuw %}
+        Toevoegen
+    {% else %}
+        Bewerken
+    {% endif %}
+</h1>
+
 <p>
     {% if nieuw %}
         Nieuwe automatische SportBit-inschrijving
@@ -20,6 +28,7 @@
         value="{{ csrf_token() }}"
     >
 
+
     <label for="dag">
         Dag
     </label>
@@ -29,31 +38,38 @@
         name="dag"
         required
     >
+
         {% for dag in dagen %}
+
             <option
                 value="{{ dag }}"
                 {% if item.dag == dag %}selected{% endif %}
             >
                 {{ dag|capitalize }}
             </option>
+
         {% endfor %}
+
     </select>
+
 
     <label for="tijd">
         Tijd
     </label>
 
-    <input
+    <select
         id="tijd"
         name="tijd"
-        type="text"
-        value="{{ item.tijd }}"
-        placeholder="09:00"
-        pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
-        maxlength="5"
-        inputmode="numeric"
         required
+        data-current-tijd="{{ item.tijd }}"
     >
+
+        <option value="">
+            Kies eerst een dag...
+        </option>
+
+    </select>
+
 
     <label for="les">
         Les
@@ -65,25 +81,31 @@
         required
         data-current-les="{{ item.les }}"
     >
+
         <option value="">
             Voer dag en tijd in...
         </option>
 
         {% if item.les %}
+
             <option
                 value="{{ item.les }}"
                 selected
             >
                 {{ item.les }}
             </option>
+
         {% endif %}
+
     </select>
+
 
     <p
         id="lessen-status"
         class="form-help"
         aria-live="polite"
     ></p>
+
 
     <div class="form-actions">
 

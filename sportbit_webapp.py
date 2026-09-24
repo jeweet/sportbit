@@ -919,7 +919,7 @@ def nieuwe_inschrijving():
         if not les:
 
             fouten.append(
-                "Vul een lesnaam in."
+                "Selecteer een les."
             )
 
         if fouten:

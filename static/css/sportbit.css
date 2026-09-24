@@ -27,6 +27,7 @@
 
 html {
     background: var(--black);
+    scroll-behavior: auto;
 }
 
 body {
@@ -40,7 +41,7 @@ body {
             transparent 30%
         ),
         var(--black);
-
+    background-attachment: fixed;
     color: var(--white);
 
     font-family:
@@ -81,7 +82,9 @@ select {
     z-index: 1000;
 
     background: #050505;
-    border-bottom: 4px solid var(--green);
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
+
+/*    border-bottom: 1px solid var(--green);*/
     box-shadow: 0 5px 25px rgba(0, 0, 0, .45);
 }
 
@@ -149,7 +152,7 @@ select {
 
     background: transparent;
     border: 1px solid #444;
-    border-radius: 0;
+    border-radius: 5px;
 
     color: var(--white);
 
@@ -214,9 +217,9 @@ select {
 
     background: #0b0b0b;
     border: 1px solid var(--border);
-    border-top: 3px solid var(--green);
+    border-radius: 12px;
 
-    box-shadow: 0 15px 35px rgba(0, 0, 0, .55);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, .75);
 
     opacity: 0;
     transform: translateY(-8px);
@@ -279,14 +282,13 @@ select {
     background: #1a1a1a;
 }
 
-.mobile-menu-primary {
+.mobile-menu-primary .mobile-menu-icon {
     background: var(--green);
     color: #050505;
 }
 
 .mobile-menu-primary:hover {
-    background: var(--green-bright);
-    color: #050505;
+    background: #1a1a1a;
 }
 
 .mobile-menu-icon {
@@ -369,7 +371,7 @@ select {
 
     margin-top: 13px;
 
-    background: var(--green);
+    background: #444;
 }
 
 .page-title p {
@@ -401,15 +403,25 @@ select {
     background:
         linear-gradient(
             135deg,
-            var(--black-2),
-            var(--black-3)
+            color-mix(
+                in srgb,
+                var(--lesson-color, #444) 3%,
+                var(--black)
+            ),
+            var(--black)
         );
 
     border: 1px solid var(--border);
-    border-left: 5px solid var(--green);
-    border-radius: 0;
+    border-left: 5px solid var(--lesson-color, #444);
+    border-radius: 5px 16px 16px 5px;
 
-    box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+    box-shadow:
+        0 8px 30px
+        color-mix(
+            in srgb,
+            var(--lesson-color, #444) 4%,
+            transparent
+        );
 }
 
 .card-header {
@@ -430,30 +442,6 @@ select {
     font-weight: 900;
 
     text-transform: uppercase;
-}
-
-.card-crossfit {
-    border-left-color: #8bc34a;
-}
-
-.card-endurance-class {
-    border-left-color: #f0b429;
-}
-
-.card-bags {
-    border-left-color: #9b59b6;
-}
-
-.card-olympic-weightlifting {
-    border-left-color: #3498db;
-}
-
-.card-strongfit {
-    border-left-color: #ef4444;
-}
-
-.card-hyrox {
-    border-left-color: #991b1b;
 }
 
 .schedule {
@@ -502,6 +490,39 @@ select {
     }
 }
 
+.card-endurance-class {
+    --lesson-color: #facc15;
+}
+
+.card-wod {
+    --lesson-color: #22c55e;
+}
+
+.card-bags {
+    --lesson-color: #a855f7;
+}
+
+.card-open-gym-binnen {
+    --lesson-color: #64748b;
+}
+
+.card-olympic-weightlifting {
+    --lesson-color: #ef4444;
+}
+
+.card-hyrox {
+    --lesson-color: #f97316;
+}
+
+.card-personal-training {
+    --lesson-color: #06b6d4;
+}
+
+.card-corporate {
+    --lesson-color: #ec4899;
+}
+
+
 /* ============================================================
    VOLGENDE LESSEN
    ============================================================ */
@@ -526,12 +547,13 @@ select {
 
     border: 1px solid var(--border);
     border-left: 3px solid #444;
+    border-radius: 5px 12px 12px 5px;
 }
 
 .next-lesson-date {
     color: var(--white);
 
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 900;
 
     text-transform: uppercase;
@@ -575,6 +597,7 @@ select {
     justify-content: center;
 
     border: 1px solid #572323;
+    border-radius: 5px;
 
     background: transparent;
     color: #ff7777;
@@ -608,6 +631,7 @@ select {
     padding: 7px 11px;
 
     border: 1px solid;
+    border-radius: 5px;
 
     font-size: 11px;
     font-weight: 900;
@@ -803,6 +827,7 @@ select {
 
     border: 1px solid #444;
     border-radius: 0;
+    border-radius: 5px;
 
     background: transparent;
     color: var(--white);
@@ -857,39 +882,73 @@ select {
 
 
 /* ============================================================
-   ALERTS
+   FLOATING ALERTS
    ============================================================ */
 
 .alert {
-    margin-bottom: 18px;
-    padding: 14px 16px;
+    position: fixed;
+    top: 76px;
+    left: 50%;
+    transform: translateX(-50%);
 
-    border-left: 4px solid var(--green);
-    background: #151d0f;
+    z-index: 9999;
 
+    width: min(92vw, 460px);
+    box-sizing: border-box;
+
+    padding: 12px 16px;
+
+    border: 1px solid #333;
+    border-left: 4px solid var(--accent-color);
+    border-radius: 10px;
+
+    background: #1b1b1b;
     color: var(--white);
 
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 600;
+    line-height: 1.4;
+
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    animation: alert-fade-out 0.5s ease 3.5s forwards;
 }
 
+/* Fout */
 .alert-error {
-    border-left-color: var(--danger);
-    background: #211010;
+    border-left-color: #e05252;
 }
 
+/* Waarschuwing */
 .alert-warning {
-    border-left-color: var(--warning);
-    background: #211b0c;
+    border-left-color: #e0a83e;
 }
 
+/* Succes */
+.alert-success {
+    border-left-color: #6fbd63;
+}
+
+/* Informatief */
+.alert-info {
+    border-left-color: #5b9bd5;
+}
+
+@keyframes alert-fade-out {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+        visibility: hidden;
+    }
+}
 
 /* ============================================================
    FORMS
    ============================================================ */
 
 .form-card {
-    max-width: 650px;
 }
 
 .form-card h1 {
@@ -924,7 +983,7 @@ form select {
     padding: 10px 12px;
 
     border: 1px solid #3a3a3a;
-    border-radius: 0;
+    border-radius: 5px;
 
     background: #080808;
     color: var(--white);
@@ -1071,7 +1130,6 @@ form select option {
 
 .settings-card,
 .settings-testmail {
-    max-width: 750px;
 }
 
 .settings-section {
@@ -1079,6 +1137,7 @@ form select option {
     margin-bottom: 28px;
 
     border-bottom: 1px solid var(--border);
+    max-width: 700px;
 }
 
 .settings-section:last-of-type {
@@ -1505,4 +1564,211 @@ form select option {
         /* Mobile menu remains available for JS/state handling,
            but desktop header actions remain in their normal layout. */
     }
+}
+
+/* =========================================================
+   LESKEUZE
+   ========================================================= */
+
+.lesson-choices {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+}
+
+@media (max-width: 600px) {
+    .lesson-choices {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Basis */
+
+.lesson-option {
+    --lesson-color: #64748b;
+
+    appearance: none;
+    -webkit-appearance: none;
+
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 64px;
+
+    box-sizing: border-box;
+
+    padding: 12px 14px;
+
+    border: 1px solid #333;
+    border-left: 6px solid var(--lesson-color);
+    border-radius: 5px 12px 12px 5px;
+
+    background:
+        linear-gradient(
+            135deg,
+            color-mix(
+                in srgb,
+                var(--lesson-color, #444) 3%,
+                var(--black)
+            ),
+            var(--black)
+        );
+    color: #fff !important;
+
+    font: inherit;
+    text-align: left;
+
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+
+    box-shadow:
+        0 8px 30px
+        color-mix(
+            in srgb,
+            var(--lesson-color, #444) 5%,
+            transparent
+        );
+
+    transition:
+        background-color .15s ease,
+        border-color .15s ease,
+        transform .1s ease,
+        box-shadow .15s ease;
+}
+
+/* Hover */
+
+.lesson-option:hover {
+    background: #252525 !important;
+    border-color: #444;
+}
+
+
+/* Tijdens klikken */
+
+.lesson-option:active {
+    transform: scale(.98);
+    background: #303030 !important;
+}
+
+
+/* Geselecteerd */
+
+.lesson-option.selected {
+    background: #303030 !important;
+    border-color: var(--lesson-color);
+    border-left-width: 7px;
+
+    box-shadow:
+        0 0 0 1px var(--lesson-color),
+        0 4px 14px rgba(0, 0, 0, .35);
+}
+
+
+/* Tijd */
+
+.lesson-option-time {
+    flex: 0 0 58px;
+
+    color: #aaa;
+
+    font-size: .9rem;
+    font-weight: 700;
+}
+
+
+/* Naam */
+
+.lesson-option-name {
+    flex: 1;
+
+    color: #fff;
+
+    font-size: 14px;
+    font-weight: 600;
+    font-weight: 900;
+
+    text-transform: uppercase;
+
+}
+
+
+/* Selectievinkje */
+
+.lesson-option-check {
+    flex: 0 0 auto;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 24px;
+    height: 24px;
+
+    margin-left: 10px;
+
+    border: 2px solid #555;
+    border-radius: 50%;
+
+    color: transparent;
+    font-size: 13px;
+    font-weight: 800;
+
+    transition: all .15s ease;
+}
+
+.lesson-option.selected .lesson-option-check {
+    border-color: var(--lesson-color);
+    background: var(--lesson-color);
+    color: #fff;
+}
+
+
+/* =========================================================
+   LESTYPES
+   ========================================================= */
+
+.lesson-option[data-les="Endurance class"] {
+    --lesson-color: #facc15;
+}
+
+.lesson-option[data-les="WOD"] {
+    --lesson-color: #22c55e;
+}
+
+.lesson-option[data-les="Bags"] {
+    --lesson-color: #a855f7;
+}
+
+.lesson-option[data-les="Open Gym binnen"] {
+    --lesson-color: #64748b;
+}
+
+.lesson-option[data-les="Olympic Weightlifting"] {
+    --lesson-color: #ef4444;
+}
+
+.lesson-option[data-les="HYROX"] {
+    --lesson-color: #f97316;
+}
+
+.lesson-option[data-les="Personal Training"] {
+    --lesson-color: #06b6d4;
+}
+
+.lesson-option[data-les="Corporate"] {
+    --lesson-color: #ec4899;
+}
+
+
+/* Mobiel */
+
+@media (max-width: 699px) {
+
+    .lesson-option {
+        min-height: 60px;
+    }
+
 }

@@ -2,130 +2,120 @@
 
 {% block content %}
 
-<script src="{{ url_for('static', filename='js/edit.js') }}" defer ></script> <div class="page-title">
-<h1>
-    {% if nieuw %}
-        Toevoegen
-    {% else %}
-        Bewerken
-    {% endif %}
-</h1>
-
-<p>
-    {% if nieuw %}
-        Nieuwe automatische SportBit-inschrijving
-    {% else %}
-        SportBit-inschrijving aanpassen
-    {% endif %}
-</p>
-
-</div> <section class="card form-card">
-<form method="post">
-
-    <input
-        type="hidden"
-        name="csrf_token"
-        value="{{ csrf_token() }}"
-    >
-
-
-    <label for="dag">
-        Dag
-    </label>
-
-    <select
-        id="dag"
-        name="dag"
-        required
-    >
-
-        {% for dag in dagen %}
-
-            <option
-                value="{{ dag }}"
-                {% if item.dag == dag %}selected{% endif %}
-            >
-                {{ dag|capitalize }}
-            </option>
-
-        {% endfor %}
-
-    </select>
-
-
-    <label for="tijd">
-        Tijd
-    </label>
-
-    <select
-        id="tijd"
-        name="tijd"
-        required
-        data-current-tijd="{{ item.tijd }}"
-    >
-
-        <option value="">
-            Kies eerst een dag...
-        </option>
-
-    </select>
-
-
-    <label for="les">
-        Les
-    </label>
-
-    <select
-        id="les"
-        name="les"
-        required
-        data-current-les="{{ item.les }}"
-    >
-
-        <option value="">
-            Voer dag en tijd in...
-        </option>
-
-        {% if item.les %}
-
-            <option
-                value="{{ item.les }}"
-                selected
-            >
-                {{ item.les }}
-            </option>
-
+<div class="page-title">
+    <h1>
+        {% if nieuw %}
+            Nieuwe les
+        {% else %}
+            Les bewerken
         {% endif %}
+    </h1>
 
-    </select>
-
-
-    <p
-        id="lessen-status"
-        class="form-help"
-        aria-live="polite"
-    ></p>
+    <p>
+        Kies een dag en selecteer vervolgens de gewenste les.
+    </p>
+</div>
 
 
-    <div class="form-actions">
+<section class="card form-card">
 
-        <a
-            href="{{ url_for('index') }}"
-            class="button"
+    <form method="post" id="lesson-form">
+
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
         >
-            Annuleren
-        </a>
 
-        <button
-            type="submit"
-            class="button button-primary"
+
+        <!-- DAG -->
+
+        <label for="dag">
+            Dag
+        </label>
+
+        <select
+            id="dag"
+            name="dag"
+            required
         >
-            Opslaan
-        </button>
 
-    </div>
+            {% for dag in dagen %}
 
-</form>
+                <option
+                    value="{{ dag }}"
+                    {% if item.dag == dag %}
+                        selected
+                    {% endif %}
+                >
+                    {{ dag|capitalize }}
+                </option>
+
+            {% endfor %}
+
+        </select>
+
+
+        <!--
+            Deze waarden worden door sportbit.js
+            gevuld wanneer een les wordt geselecteerd.
+        -->
+
+        <input
+            type="hidden"
+            id="tijd"
+            name="tijd"
+            value="{{ item.tijd|default('', true) }}"
+        >
+
+        <input
+            type="hidden"
+            id="les"
+            name="les"
+            value="{{ item.les|default('', true) }}"
+        >
+
+
+        <!-- LES -->
+
+        <label class="form-label">
+            Les
+        </label>
+
+        <div
+            id="lesson-options"
+            class="lesson-choices"
+            role="radiogroup"
+            aria-label="Beschikbare lessen"
+        >
+            <p class="lesson-choice-message">
+                Lessen laden...
+            </p>
+        </div>
+        <!-- STATUS --> 
+        <p id="lessen-status" class="form-help" aria-live="polite" ></p>
+
+        <!-- ACTIES -->
+
+        <div class="form-actions">
+
+            <a
+                href="{{ url_for('index') }}"
+                class="button"
+            >
+                Annuleren
+            </a>
+
+            <button
+                type="submit"
+                class="button button-primary"
+            >
+                Opslaan
+            </button>
+
+        </div>
+
+    </form>
 
 </section>
 

@@ -1,663 +1,526 @@
-# Go Personal · SportBit
+# SportBit Go Personal
 
-Een Flask-webapp voor het automatisch beheren en uitvoeren van SportBit-inschrijvingen voor CrossFit Go Personal.
+Een lichte Flask-webapplicatie voor het automatisch inschrijven en uitschrijven van lessen in SportBit.
 
-De applicatie houdt geconfigureerde lessen bij, controleert de eerstvolgende lessen in SportBit en kan automatisch proberen in te schrijven zodra de inschrijving opent. Bij bepaalde problemen kan een e-mailnotificatie worden verstuurd.
+De applicatie is bedoeld om op een kleine server, Raspberry Pi, NAS of andere Linux-machine te draaien. Via een mobiele webinterface kunnen inschrijvingen worden ingesteld en gecontroleerd. Een ingebouwde scheduler voert de automatische inschrijvingen dagelijks uit.
 
-![Screenshot](screenshot.png)
-
----
-
-## Inhoudsopgave
-
-- [Functionaliteit](#functionaliteit)
-- [Hoe werkt het?](#hoe-werkt-het)
-- [Inschrijvingen configureren](#inschrijvingen-configureren)
-- [Automatische lescontrole](#automatische-lescontrole)
-- [Boekingsmoment](#boekingsmoment)
-- [Eerstvolgende twee lessen](#eerstvolgende-twee-lessen)
-- [Statussen](#statussen)
-- [Dagelijkse controle](#dagelijkse-controle)
-- [Technische fouten](#technische-fouten)
-- [E-mailnotificaties](#e-mailnotificaties)
-- [Installatie](#installatie)
-- [Configuratie](#configuratie)
-- [Starten](#starten)
-- [Productie](#productie)
-- [Webinterface](#webinterface)
-- [Statuscache](#statuscache)
-- [Beveiliging](#beveiliging)
-- [Projectstructuur](#projectstructuur)
-- [Belangrijke ontwerpkeuzes](#belangrijke-ontwerpkeuzes)
-- [Licentie](#licentie)
-- [Disclaimer](#disclaimer)
+![Screenshot van de SportBit webapp](screenshot.png)
 
 ---
 
-## Functionaliteit
+## Functies
 
-- 📅 Lessen configureren op **weekdag + tijd + lesnaam**
-- 🔎 Lessen in SportBit zoeken op **lesnaam en starttijd**
-- 📝 Automatisch inschrijven zodra de boekingsperiode opent
-- 👥 Herkenning van verschillende inschrijvingsstatussen:
-  - Ingeschreven
-  - Wachtlijst
-  - Niet ingeschreven
-  - Inschrijving gesloten
-  - Geen event
-  - Status onbekend
-- 📆 De eerstvolgende twee lessen per inschrijving tonen
-- 🔄 Statuscontrole met een **cache van 5 minuten**
-- ⏰ Dagelijkse controle rond **00:01**
-- 📧 E-mailnotificaties bij ontbrekende lessen of mislukte inschrijvingen
-- 🧪 Handmatig een testmail versturen
-- 📋 De laatste SportBit-activiteit bekijken vanuit de webinterface
-- ✏️ Inschrijvingen toevoegen, aanpassen en verwijderen via de webinterface
-- 📱 Responsive interface voor desktop en mobiel
-- 📲 Basis-PWA-functionaliteit met service worker en webmanifest
+- Automatisch inschrijven voor SportBit-lessen.
+- Automatisch controleren van de eerstvolgende lessen.
+- Tonen van de eerstvolgende twee lessen per inschrijving.
+- Tonen van:
+  - aantal deelnemers;
+  - maximale capaciteit;
+  - trainer;
+  - buddy-status.
+- Handmatig inschrijven vanuit de webinterface.
+- Handmatig uitschrijven.
+- Inschrijvingen toevoegen, aanpassen en verwijderen.
+- Ingebouwde dagelijkse scheduler.
+- Instelbare scheduler-tijd en tijdzone.
+- Permanente logging.
+- Live logpagina in de webinterface.
+- Optionele web-login.
+- CSRF-bescherming voor formulieren.
+- Mobielvriendelijke interface.
+- Documentatiepagina in de applicatie.
+- Optionele e-mail/testmail-functionaliteit.
 
 ---
 
-## Hoe werkt het?
+## Werking
 
-De applicatie bestaat uit een Flask-webinterface en een SportBit-integratie.
+De applicatie bestaat uit een Flask-webinterface en een aantal losse Python-modules voor de SportBit-logica.
 
-Globaal werkt het als volgt:
+In grote lijnen werkt de applicatie als volgt:
+
+1. De configuratie wordt ingelezen.
+2. De applicatie bepaalt voor iedere ingestelde les wanneer de eerstvolgende les plaatsvindt.
+3. SportBit wordt gecontroleerd op de betreffende lessen.
+4. De status van de les wordt bepaald, bijvoorbeeld:
+   - ingeschreven;
+   - wachtlijst;
+   - beschikbaar;
+   - vol;
+   - niet ingeschreven.
+5. De webinterface toont de actuele situatie.
+6. De ingebouwde scheduler controleert op het ingestelde tijdstip automatisch alle inschrijvingen.
+7. Wanneer een doel-les beschikbaar is, wordt geprobeerd automatisch in te schrijven.
+8. Een succesvol afgehandelde inschrijving wordt opgeslagen zodat dezelfde les niet opnieuw automatisch wordt verwerkt.
+9. Alle relevante acties worden naar het logbestand geschreven.
+
+De scheduler draait als achtergrondthread binnen hetzelfde Flask-process. Er is daardoor geen aparte cronjob nodig.
+
+---
+
+## Projectstructuur
+
+Een vereenvoudigde structuur:
 
 ```text
-sportbit.conf
-      │
-      ▼
- Flask webapp
-      │
-      ├──► SportBit API
-      │       │
-      │       └──► lessen / inschrijvingen / wachtlijst
-      │
-      ├──► statusweergave
-      │
-      └──► automatische inschrijving
-                  │
-                  ▼
-              notify.py
-                  │
-                  └──► e-mail
+sportbit/
+├── sportbit_webapp.py
+├── sportbit_api.py
+├── sportbit_config.py
+├── sportbit_dates.py
+├── sportbit_events.py
+├── sportbit_registration.py
+├── sportbit_automation_state.py
+├── sportbit_state.py
+├── notify.py
+│
+├── templates/
+│   ├── base.html
+│   ├── index.html
+│   ├── edit.html
+│   ├── settings.html
+│   ├── documentation.html
+│   └── log.html
+│
+├── static/
+│   ├── css/
+│   ├── js/
+│   └── images/
+│
+├── logs/
+│   └── sportbit.log
+│
+├── .env
+├── .flask_secret_key
+└── ...
 ```
 
----
-
-## Inschrijvingen configureren
-
-Iedere inschrijving bestaat uit:
-
-- een **weekdag**
-- een **tijd**
-- een **lesnaam**
-
-Bijvoorbeeld:
-
-```ini
-[inschrijving_1]
-dag = maandag
-tijd = 07:00
-les = Crossfit
-```
-
-De configuratie wordt opgeslagen in:
-
-```text
-sportbit.conf
-```
-
-Nieuwe inschrijvingen kunnen ook via de webinterface worden toegevoegd.
-
----
-
-## Automatische lescontrole
-
-Voor iedere configuratie wordt de eerstvolgende les bepaald.
-
-De applicatie zoekt vervolgens in SportBit naar een event dat overeenkomt met:
-
-```text
-lesnaam + starttijd + datum
-```
-
-De event-ID wordt dus **niet vooraf opgeslagen**.
-
-Dit is bewust zo gedaan. Hierdoor kan de applicatie blijven werken wanneer SportBit nieuwe events aanmaakt.
-
-De vergelijking van de lesnaam is hoofdletterongevoelig.
-
-De volgende namen worden bijvoorbeeld als dezelfde les beschouwd:
-
-```text
-Crossfit
-CROSSFIT
-crossfit
-```
-
----
-
-## Boekingsmoment
-
-De applicatie gaat ervan uit dat een les **7 dagen van tevoren** boekbaar wordt.
-
-Voor een les op:
-
-```text
-maandag 07:00
-```
-
-wordt vanaf:
-
-```text
-maandag 00:00
-```
-
-gecontroleerd of inschrijven mogelijk is.
-
-De daadwerkelijke inschrijving wordt vervolgens door de SportBit-integratie uitgevoerd.
-
-De applicatie controleert daarbij eerst opnieuw of de les daadwerkelijk bestaat.
-
-Als de verwachte les niet wordt gevonden, wordt **niet** geprobeerd om op een willekeurig ander event in te schrijven.
-
----
-
-## Eerstvolgende twee lessen
-
-Op de hoofdpagina worden per configuratie de twee eerstvolgende lessen weergegeven.
-
-Bijvoorbeeld:
-
-```text
-MAANDAG · 07:00
-
-Eerstvolgende 2 lessen
-
-MAANDAG 21-09-2026 · 07:00
-Crossfit · 8/12 deelnemers
-INGESCHREVEN
-
-MAANDAG 28-09-2026 · 07:00
-Crossfit · 5/12 deelnemers
-INSCHRIJVING GESLOTEN
-```
-
-De status wordt rechtstreeks uit de SportBit-response bepaald.
-
----
-
-## Statussen
-
-De webapp gebruikt de volgende statussen:
-
-| Status | Betekenis |
-|---|---|
-| **INGESCHREVEN** | Je bent aangemeld voor de les |
-| **WACHTLIJST** | Je staat op de wachtlijst |
-| **NIET INGESCHREVEN** | De les bestaat en inschrijven is mogelijk |
-| **INSCHRIJVING GESLOTEN** | De les bestaat, maar het boekingsmoment is nog niet geopend |
-| **GEEN EVENT** | De verwachte les is niet gevonden |
-| **STATUS ONBEKEND** | De controle kon niet betrouwbaar worden uitgevoerd |
-
----
-
-## Dagelijkse controle
-
-Naast de controle die plaatsvindt wanneer de webpagina wordt geopend, draait er een achtergrondthread.
-
-Deze controle kijkt dagelijks rond:
-
-```text
-00:01
-```
-
-voor welke lessen die dag de boekingsperiode opent.
-
-Als de verwachte les niet wordt gevonden, wordt er **geen automatische inschrijving** uitgevoerd.
-
-In plaats daarvan kan een notificatie worden verstuurd.
-
-Dit voorkomt bijvoorbeeld dat de applicatie bij een gewijzigde feestdag-WOD probeert in te schrijven voor een verkeerde les.
-
----
-
-## Technische fouten
-
-Een netwerkfout of andere technische fout wordt **niet automatisch geïnterpreteerd als `GEEN EVENT`**.
-
-Dit onderscheid is belangrijk.
-
-Een tijdelijke SportBit-storing betekent immers niet dat de les daadwerkelijk ontbreekt.
-
-Daarom worden technische fouten en ontbrekende events afzonderlijk behandeld.
-
----
-
-## E-mailnotificaties
-
-De e-mailfunctionaliteit staat in:
-
-```text
-notify.py
-```
-
-De SportBit- en Flask-logica blijft daarmee gescheiden van de notificatielogica.
-
-Er zijn onder andere notificaties voor:
-
-### Ontbrekende les
-
-Wanneer de dagelijkse controle de verwachte les niet vindt.
-
-### Mislukte inschrijving
-
-Wanneer een daadwerkelijke automatische inschrijfpoging mislukt of niet kan worden bevestigd.
-
-### Testmail
-
-Via de webinterface kan handmatig een testmail worden verstuurd om de SMTP-configuratie te controleren.
-
-### Dubbele meldingen voorkomen
-
-Voor ontbrekende lessen wordt bijgehouden welke melding al is verstuurd.
-
-Dit gebeurt via:
-
-```text
-notify_state.json
-```
-
-Hierdoor kan een herhaalde controle niet steeds opnieuw dezelfde melding versturen.
+De exacte bestandsindeling kan per installatie verschillen.
 
 ---
 
 # Installatie
 
-## Vereisten
+## 1. Python installeren
 
-Je hebt nodig:
+De applicatie gebruikt Python 3.
 
-- Python 3
-- Toegang tot een SportBit-account
-- Een SMTP-account voor notificaties
-- Een server of computer waarop de applicatie kan blijven draaien
-
-## Repository clonen
+Op Debian/Ubuntu bijvoorbeeld:
 
 ```bash
-git clone https://github.com/jeweet/sportbit.git
-cd REPOSITORY
+sudo apt update
+sudo apt install python3 python3-venv python3-pip
 ```
 
----
-
-## Virtuele omgeving
-
-Het is aanbevolen om een virtual environment te gebruiken:
+Controleer:
 
 ```bash
-python3 -m venv .venv
+python3 --version
 ```
 
-### Linux / macOS
+---
+
+## 2. Project downloaden
+
+Plaats de applicatie bijvoorbeeld in:
+
+```text
+/opt/sportbit
+```
+
+Bijvoorbeeld:
 
 ```bash
-source .venv/bin/activate
+sudo mkdir -p /opt/sportbit
+sudo chown "$USER":"$USER" /opt/sportbit
+cd /opt/sportbit
 ```
 
-### Windows
-
-```powershell
-.venv\Scripts\activate
-```
+Plaats vervolgens de projectbestanden in deze directory.
 
 ---
 
-## Dependencies installeren
+## 3. Virtuele Python-omgeving
 
-Installeer de benodigde Python-packages:
+Maak een virtual environment:
 
 ```bash
-pip install flask python-dotenv requests
+python3 -m venv venv
 ```
 
-Alle overige modules (`sportbit_api.py`, `sportbit_config.py`, `sportbit_dates.py`, `sportbit_events.py`, `sportbit_registration.py`, `sportbit_automation_state.py`, `sportbit_state.py`, `notify.py`) horen al bij deze repository en hoeven niet apart geïnstalleerd te worden.
+Activeer deze:
 
----
-
-# Configuratie
-
-De applicatie gebruikt twee belangrijke configuratiebestanden:
-
-- `.env` — gevoelige gegevens
-- `sportbit.conf` — geconfigureerde lessen
-
----
-
-## `.env`
-
-Gevoelige gegevens zoals login- en SMTP-instellingen horen in `.env`.
-
-Voorbeeld:
-
-```dotenv
-WEB_USERNAME=jouw_gebruikersnaam
-WEB_PASSWORD=jouw_wachtwoord
-
-SPORTBIT_USERNAME=jouw_crossfit_gebruikersnaam
-SPORTBIT_PASSWORD=jouw_crossfit_wachtwoord
-
-FLASK_SECRET_KEY=vervang-dit-door-een-lange-willekeurige-string
-
-# Zet dit op true zodra de app achter HTTPS bereikbaar is
-# (bijvoorbeeld via een reverse proxy). Bij platte HTTP op een
-# lokaal netwerk kan dit op false blijven staan.
-SESSION_COOKIE_SECURE=false
-
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USERNAME=jouw-email@example.com
-SMTP_PASSWORD=jouw-smtp-wachtwoord
-SMTP_FROM=jouw-email@example.com
-SMTP_TO=jouw-email@example.com
+```bash
+source venv/bin/activate
 ```
 
-> **Let op:** commit nooit je echte `.env` naar GitHub.
->
-> Als `FLASK_SECRET_KEY` leeg blijft, genereert de app bij de eerste
-> start automatisch een willekeurige sleutel en slaat deze op in
-> `.flask_secret_key` (staat al in `.gitignore`). Voor productie is
-> het beter om zelf een vaste, lange willekeurige string in te
-> stellen via `FLASK_SECRET_KEY`.
+Installeer daarna de benodigde Python-packages.
 
-Voeg bijvoorbeeld het volgende toe aan `.gitignore`:
+Als er een `requirements.txt` aanwezig is:
 
-```gitignore
-.env
-.venv/
-__pycache__/
-*.pyc
-sportbit.conf
-notify_state.json
+```bash
+pip install -r requirements.txt
 ```
 
 ---
 
-## `sportbit.conf`
+## 4. Configuratie
 
-De lessen worden opgeslagen in `sportbit.conf`.
+Maak een `.env` bestand in de hoofdmap van de applicatie.
 
-Voorbeeld:
+De belangrijkste instellingen zijn de SportBit-inloggegevens en eventueel de web-login.
 
-```ini
-[inschrijving_1]
-dag = maandag
-tijd = 07:00
-les = Crossfit
+Bijvoorbeeld:
 
-[inschrijving_2]
-dag = woensdag
-tijd = 19:00
-les = Crossfit
+```env
+SPORTBIT_USERNAME=jouw_sportbit_gebruikersnaam
+SPORTBIT_PASSWORD=jouw_sportbit_wachtwoord
+
+WEB_USERNAME=admin
+WEB_PASSWORD=een-sterk-wachtwoord
 ```
 
-Je kunt deze configuratie handmatig aanpassen, maar normaal gesproken kan dit via de webinterface.
+Gebruik voor echte wachtwoorden uiteraard geen voorbeeldwaarden.
+
+### Web-login
+
+`WEB_USERNAME` en `WEB_PASSWORD` zijn optioneel.
+
+Wanneer deze niet zijn ingesteld, is de webinterface toegankelijk zonder login.
+
+Wanneer beide zijn ingesteld, wordt de webinterface achter een login geplaatst.
+
+Dit is vooral belangrijk wanneer de applicatie vanaf andere apparaten of buiten localhost bereikbaar is.
+
+---
+
+## 5. Flask secret key
+
+De applicatie gebruikt een permanente Flask secret key.
+
+Wanneer `FLASK_SECRET_KEY` niet in `.env` staat, wordt automatisch een willekeurige sleutel aangemaakt en opgeslagen in:
+
+```text
+.flask_secret_key
+```
+
+Dit bestand moet daarom behouden blijven wanneer de applicatie wordt verplaatst of opnieuw gestart.
+
+Eventueel kan zelf een sleutel worden ingesteld:
+
+```env
+FLASK_SECRET_KEY=een-lange-willekeurige-geheime-sleutel
+```
+
+De secret key en `.env` mogen niet publiek worden gedeeld.
 
 ---
 
 # Starten
 
-Start de applicatie met:
+Activeer de virtual environment:
+
+```bash
+cd /opt/sportbit
+source venv/bin/activate
+```
+
+Start daarna:
 
 ```bash
 python3 sportbit_webapp.py
 ```
 
-De Flask-server luistert standaard op:
+De webinterface is vervolgens bereikbaar via het adres waarop Flask luistert.
 
-```text
-0.0.0.0:5000
-```
-
-Open vervolgens in de browser:
-
-```text
-http://localhost:5000
-```
-
-Vanaf een ander apparaat in hetzelfde netwerk kan de server bijvoorbeeld worden geopend via:
-
-```text
-http://<IP-ADRES-VAN-DE-SERVER>:5000
-```
+Bij gebruik binnen een lokaal netwerk kan de applicatie bijvoorbeeld via het IP-adres van de server worden geopend.
 
 ---
 
-# Productie
+# Scheduler
 
-Voor productie wordt aanbevolen om Flask niet rechtstreeks met de ingebouwde development server te draaien.
+De scheduler is onderdeel van de applicatie.
 
-Gebruik bijvoorbeeld Gunicorn:
+Er is dus geen aparte cronjob nodig.
 
-```bash
-pip install gunicorn
-```
+In de instellingen kunnen de schedulerinstellingen worden aangepast, waaronder:
 
-Daarna:
+- aan/uit;
+- tijd waarop de automatische controle wordt uitgevoerd;
+- tijdzone.
 
-```bash
-gunicorn -w 1 -b 0.0.0.0:5000 sportbit_webapp:app
-```
+De scheduler controleert periodiek de instellingen en voert maximaal één automatische run per kalenderdag uit op het ingestelde tijdstip.
 
-## Waarom `-w 1`?
+De scheduler gebruikt de ingestelde tijdzone in plaats van blind de systeemtijd te gebruiken.
 
-De dagelijkse SportBit-controle wordt momenteel gestart als een Python-backgroundthread:
+---
 
-```python
-start_dagelijkse_controle()
-```
+# Status en automatische inschrijving
 
-Meerdere Gunicorn-workers zouden ieder hun eigen backgroundthread kunnen starten.
+Voor iedere geconfigureerde inschrijving wordt gekeken naar de eerstvolgende relevante les.
 
-Dat kan ertoe leiden dat dezelfde dagelijkse controle meerdere keren wordt uitgevoerd.
+De applicatie houdt daarbij rekening met de actuele SportBit-status.
 
-Voor de huidige architectuur is daarom **één worker** het eenvoudigst.
+Een automatisch verwerkte les wordt als afgehandeld opgeslagen. Hierdoor wordt dezelfde les niet bij iedere schedulercontrole opnieuw geprobeerd.
 
-Voor een grotere productieomgeving zou de scheduler beter als aparte service kunnen worden uitgevoerd.
+Wanneer een les nog niet beschikbaar is, wordt deze niet als succesvol afgehandeld gemarkeerd. Een volgende controle kan de les daardoor opnieuw proberen.
+
+Een handmatige annulering kan eveneens als overgeslagen worden opgeslagen.
 
 ---
 
 # Webinterface
 
-De applicatie bevat onder andere de volgende onderdelen:
+De interface bestaat uit verschillende onderdelen.
 
-### Mijn inschrijvingen
+## Overzicht
 
-Toont alle geconfigureerde lessen en de status van de eerstvolgende twee lessen.
+Op de overzichtspagina staat per ingestelde les:
 
-### Toevoegen
+- lesnaam;
+- vaste dag en tijd;
+- eerstvolgende twee lessen;
+- deelnemersaantal;
+- maximale capaciteit;
+- trainer;
+- buddy-status;
+- actuele inschrijfstatus.
 
-Nieuwe automatische inschrijving configureren.
+Daarnaast zijn acties beschikbaar voor inschrijven, bewerken en verwijderen.
 
-### Bewerken
+Op kleine schermen worden de actieknoppen standaard ingeklapt. De belangrijkste informatie blijft zichtbaar zodat de pagina compact blijft op een telefoon.
 
-Bestaande inschrijving aanpassen.
-
-### Verwijderen
-
-Een configuratie verwijderen.
-
-### Documentatie
-
-Uitleg over de werking van de automatische controles en notificaties.
-
-### Laatste log
-
-Toont de laatste uitvoer van een daadwerkelijke SportBit-inschrijfpoging.
-
-### Testmail
-
-Stuurt handmatig een testmail via de geconfigureerde SMTP-server.
+Op grotere schermen blijft de volledige kaart zichtbaar.
 
 ---
 
-# Statuscache
+## Bewerken
 
-De controle van de SportBit-status wordt maximaal één keer per **5 minuten** uitgevoerd per inschrijving.
+Via **Bewerken** kunnen de eigenschappen van een automatische inschrijving worden aangepast:
 
-Dit wordt geregeld met:
+- dag;
+- tijd;
+- les.
 
-```python
-STATUS_CACHE_SECONDS = 5 * 60
+Bij het kiezen van een dag en tijd kan SportBit worden geraadpleegd om beschikbare lessen te tonen.
+
+---
+
+## Instellingen
+
+De instellingenpagina bevat de configuratie die tijdens runtime aangepast kan worden.
+
+Wijzigingen worden naar de configuratie opgeslagen en relevante modules worden opnieuw geladen zodat nieuwe instellingen direct beschikbaar zijn voor het huidige Flask-process.
+
+---
+
+## Log
+
+De applicatie gebruikt een permanent logbestand:
+
+```text
+logs/sportbit.log
 ```
 
-De cache staat alleen in het geheugen.
+Het logbestand gebruikt rotating logging zodat het bestand niet onbeperkt blijft groeien.
 
-Na een restart van de applicatie wordt de cache opnieuw opgebouwd.
+Daarnaast is er een logpagina in de webinterface.
+
+Hierop kan de recente uitvoer van de applicatie worden bekeken.
+
+De applicatie logt onder andere:
+
+- webrequests;
+- scheduleracties;
+- automatische inschrijvingen;
+- fouten;
+- SportBit-acties;
+- wijzigingen in schedulerinstellingen.
 
 ---
 
 # Beveiliging
 
-Deze applicatie verwerkt gevoelige gegevens.
+De applicatie bevat een aantal eenvoudige beveiligingsmaatregelen.
 
-Let daarom op het volgende:
+### Web-login
 
-- Zet SportBit-wachtwoorden niet rechtstreeks in Python-code.
-- Commit `.env` niet naar Git.
-- Commit SMTP-wachtwoorden niet naar Git.
-- Zet `sportbit.conf` niet openbaar als daarin persoonlijke gegevens staan.
-- Gebruik HTTPS wanneer de webinterface buiten een vertrouwd lokaal netwerk beschikbaar wordt gemaakt, en zet in dat geval ook `SESSION_COOKIE_SECURE=true`.
-- Gebruik een sterke `FLASK_SECRET_KEY` (of laat de app er automatisch één genereren, zie hierboven).
-- Stel **altijd** `WEB_USERNAME`/`WEB_PASSWORD` in zodra de app bereikbaar is voor meer dan alleen jouw eigen apparaat. Zonder deze instelling is de hele webinterface, inclusief Instellingen, voor iedereen open; de app toont hiervoor zowel bij het opstarten (in de logs) als in de webinterface zelf een waarschuwing.
-- Beperk indien mogelijk de toegang tot de Flask-webinterface.
-- De standaard Flask development server is niet bedoeld als volledige productie-infrastructuur.
+Optioneel kan een gebruikersnaam en wachtwoord worden ingesteld via:
 
-### Ingebouwde beveiligingsmaatregelen
-
-- **CSRF-bescherming**: alle formulieren (inschrijven, uitschrijven, toevoegen, bewerken, verwijderen, instellingen, testmail, inloggen) versturen een tokengebonden aan de sessie. Aanvragen zonder geldige token worden geweigerd (HTTP 400).
-- **Sessiecookies** staan standaard op `HttpOnly` en `SameSite=Lax`; `Secure` is aan te zetten via `SESSION_COOKIE_SECURE`.
-- **Geen vaste/publieke `FLASK_SECRET_KEY`**: zonder eigen instelling genereert de app zelf een willekeurige sleutel en bewaart deze lokaal.
-
----
-
-# Projectstructuur
-
-De daadwerkelijke structuur:
-
-```text
-.
-├── sportbit_webapp.py
-├── sportbit_api.py
-├── sportbit_events.py
-├── sportbit_registration.py
-├── sportbit_config.py
-├── sportbit_dates.py
-├── sportbit_automation_state.py
-├── sportbit_state.py
-├── notify.py
-├── sportbit.conf
-├── .env
-├── .flask_secret_key
-├── templates/
-├── static/
-│   ├── manifest.json
-│   ├── images/icon.svg
-│   └── js/sw.js
-└── README.md
+```env
+WEB_USERNAME=...
+WEB_PASSWORD=...
 ```
 
-| Bestand | Functie |
-|---|---|
-| `sportbit_webapp.py` | Flask-webapp: routes, login/CSRF, instellingen en de ingebouwde scheduler |
-| `sportbit_api.py` | Laagdrempelige SportBit API-laag: sessie, login, in-/uitschrijven |
-| `sportbit_events.py` | Events zoeken bij SportBit en de status ervan bepalen (met cache) |
-| `sportbit_registration.py` | Eén inschrijving/uitschrijving orkestreren, loggen en notificeren |
-| `sportbit_config.py` | Lezen/schrijven van `sportbit.conf` |
-| `sportbit_dates.py` | Datum-/tijdlogica (eerstvolgende les, boekingsmoment) |
-| `sportbit_automation_state.py` | Onthoudt welke doel-lessen al automatisch zijn afgehandeld of handmatig zijn overgeslagen |
-| `sportbit_state.py` | Gedeelde in-memory runtime-status, cache en logging |
-| `notify.py` | E-mailnotificaties |
-| `sportbit.conf` | Geconfigureerde lessen |
-| `.env` | Gevoelige configuratie |
-| `.flask_secret_key` | Automatisch gegenereerde sessiesleutel (alleen als `FLASK_SECRET_KEY` niet is ingesteld) |
-| `static/manifest.json` | PWA-configuratie |
-| `static/js/sw.js` | Service worker |
-| `static/images/icon.svg` | PWA/browsericoon |
+### CSRF-bescherming
 
----
+POST-, PUT-, PATCH- en DELETE-aanvragen worden voorzien van een CSRF-token.
 
-# Belangrijke ontwerpkeuzes
+Hierdoor worden formulieren beschermd tegen ongewenste aanvragen vanaf andere websites.
 
-## Geen vooraf opgeslagen event-ID
+### Sessiecookie
 
-De applicatie slaat geen SportBit-event-ID op voor toekomstige lessen.
+De Flask-sessie gebruikt:
 
-Een event wordt iedere keer gezocht op:
+- `HttpOnly`;
+- `SameSite=Lax`.
 
-```text
-lesnaam
-+
-starttijd
-+
-datum
+Wanneer de applicatie achter HTTPS draait, kan bovendien worden ingesteld:
+
+```env
+SESSION_COOKIE_SECURE=true
 ```
 
-Dit maakt de configuratie minder afhankelijk van tijdelijke SportBit-event-ID's.
+### Secret key
+
+De Flask secret key wordt niet hardcoded in de applicatie.
 
 ---
 
-## Geen blind automatisch inschrijven
+# Designkeuzes
 
-Als de verwachte les niet wordt gevonden, wordt niet geprobeerd om een ander event te boeken.
+## Flask
 
-Dit is vooral belangrijk rond:
+Flask is gebruikt omdat de applicatie relatief klein is en voornamelijk bestaat uit:
 
-- feestdagen
-- aangepaste roosters
-- gewijzigde WOD's
+- een webinterface;
+- enkele formulieren;
+- API-endpoints;
+- SportBit-integratie;
+- een achtergrondproces.
 
----
-
-## Technische fout ≠ ontbrekende les
-
-Een HTTP-fout, netwerkprobleem of ongeldige response wordt niet behandeld alsof de les ontbreekt.
-
-Daarmee worden foutieve notificaties zoveel mogelijk voorkomen.
+Een grote webframework-stack zou hiervoor onnodige complexiteit toevoegen.
 
 ---
 
-## Status na inschrijving opnieuw controleren
+## Losse Python-modules
 
-Na een succesvolle inschrijfpoging wordt de les opnieuw opgehaald.
+De SportBit-logica is verdeeld over meerdere modules.
 
-De applicatie probeert daarmee te bevestigen of de status daadwerkelijk:
+Onder andere:
 
 ```text
-INGESCHREVEN
+sportbit_api.py
+sportbit_events.py
+sportbit_registration.py
+sportbit_config.py
+sportbit_dates.py
+sportbit_state.py
+sportbit_automation_state.py
 ```
 
-of:
+Hierdoor zijn API-aanroepen, datumlogica, registratie, configuratie en statusbeheer zoveel mogelijk van elkaar gescheiden.
 
-```text
-WACHTLIJST
-```
-
-is geworden.
+Dit maakt wijzigingen en foutzoeken eenvoudiger.
 
 ---
 
-# Licentie
+## Ingebouwde scheduler
 
-MIT License
+Er is bewust gekozen voor een scheduler binnen de Flask-app in plaats van een aparte cronjob.
+
+Voordelen:
+
+- één applicatie om te beheren;
+- schedulerinstellingen zijn vanuit de webinterface beschikbaar;
+- geen aparte cronconfiguratie;
+- logging gebeurt op dezelfde plek als de rest van de applicatie;
+- wijzigingen kunnen tijdens runtime worden opgepakt.
+
+De scheduler wordt slechts één keer gestart binnen het process en gebruikt een lock om dubbele uitvoering te voorkomen.
 
 ---
 
-# Disclaimer
+## Permanente status
 
-Dit project is een persoonlijke automatisering voor het werken met een SportBit-account.
+Automatische acties worden niet alleen in het geheugen bijgehouden.
 
-Gebruik automatisering op eigen verantwoordelijkheid en controleer of het gebruik ervan overeenkomt met de voorwaarden en regels van de betreffende SportBit-dienst en sportschool.
+De applicatie bewaart ook welke lessen al zijn afgehandeld en welke handmatig zijn overgeslagen.
+
+Daardoor kan de applicatie na een herstart verdergaan zonder automatisch dezelfde les opnieuw te behandelen.
+
+---
+
+## Mobiel ontwerp
+
+De interface is ontworpen als een compacte mobiele webapp in plaats van als een traditionele desktopwebsite.
+
+Belangrijke informatie staat direct zichtbaar in de kaarten.
+
+Op mobiel:
+
+- blijven lesnaam en planning zichtbaar;
+- blijven de eerstvolgende lessen zichtbaar;
+- worden minder belangrijke actieknoppen ingeklapt;
+- kan een kaart met één duidelijke pijl worden geopend;
+- blijft de titel links uitgelijnd zoals op desktop.
+
+Op desktop wordt de beschikbare ruimte beter benut en blijven de acties zichtbaar.
+
+---
+
+## Geen onnodige API-calls
+
+Waar mogelijk wordt informatie die al beschikbaar is in een SportBit-event direct gebruikt.
+
+Bijvoorbeeld:
+
+```python
+event["trainer"]
+event["aantalDeelnemers"]
+event["maxDeelnemers"]
+event["buddyAangemeld"]
+```
+
+Daardoor is geen aparte API-call nodig om trainer- of buddyinformatie op te halen.
+
+---
+
+## Logging
+
+Logging is bewust een vast onderdeel van de applicatie.
+
+Een automatische inschrijving is een proces dat soms buiten beeld plaatsvindt. Daarom moet achteraf kunnen worden nagegaan:
+
+- wanneer de scheduler draaide;
+- welke inschrijving werd geprobeerd;
+- wat SportBit terug gaf;
+- waarom een actie wel of niet werd uitgevoerd;
+- of er fouten zijn opgetreden.
+
+De logpagina maakt deze informatie ook vanaf een telefoon toegankelijk.
+
+---
+
+# Productiegebruik
+
+Voor langdurig gebruik is het aan te raden de applicatie als service te starten, bijvoorbeeld met systemd of een andere process manager.
+
+De applicatie moet daarbij automatisch starten na een reboot.
+
+Wanneer de webinterface buiten het lokale netwerk beschikbaar wordt gemaakt, gebruik dan bij voorkeur:
+
+- HTTPS;
+- een reverse proxy;
+- een sterke web-login;
+- `SESSION_COOKIE_SECURE=true`.
+
+Zorg daarnaast dat `.env` en `.flask_secret_key` niet publiek toegankelijk zijn.
+
+---
+
+# Belangrijk
+
+Deze applicatie automatiseert acties op een extern SportBit-account.
+
+Controleer daarom altijd de instellingen voordat automatische inschrijving wordt ingeschakeld.
+
+Controleer in het bijzonder:
+
+- de juiste SportBit-accountgegevens;
+- de juiste lessen;
+- de juiste dag en tijd;
+- de schedulerinstellingen;
+- de tijdzone.
+
+De applicatie voert alleen acties uit volgens de ingestelde configuratie.

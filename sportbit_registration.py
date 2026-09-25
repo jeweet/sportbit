@@ -79,9 +79,16 @@ def vernieuw_status(
     return status
 
 
-def voer_inschrijving_uit(section):
+def voer_inschrijving_uit(
+    section,
+    doel=None,
+):
     """
     Voer de SportBit-inschrijving uit.
+
+    `doel` is optioneel en mag een concrete datetime zijn.
+    Wanneer `doel` niet wordt meegegeven, wordt zoals voorheen
+    de eerstvolgende les volgens de configuratie gebruikt.
 
     Geeft True terug bij succes.
     """
@@ -112,17 +119,26 @@ def voer_inschrijving_uit(section):
         tijd_string
     )
 
-    doel = volgende_datum(
-        dag,
-        tijd,
-    )
+    # ---------------------------------------------------------
+    # Concrete doel-les bepalen
+    # ---------------------------------------------------------
 
     if doel is None:
-        raise RuntimeError(
-            "Kon doelmoment niet bepalen."
+
+        doel = volgende_datum(
+            dag,
+            tijd,
         )
 
-    # Bescherm directe/automatische aanroepen.
+        if doel is None:
+            raise RuntimeError(
+                "Kon doelmoment niet bepalen."
+            )
+
+    # ---------------------------------------------------------
+    # Bescherming tegen directe/automatische aanroepen
+    # ---------------------------------------------------------
+
     if not inschrijving_open(
         doel.date()
     ):
@@ -142,7 +158,9 @@ def voer_inschrijving_uit(section):
                 print(
                     f"Inschrijven: {section}"
                 )
-                print(f"Les   : {les}")
+                print(
+                    f"Les   : {les}"
+                )
                 print(
                     f"Datum : {doel.date()}"
                 )
@@ -153,7 +171,9 @@ def voer_inschrijving_uit(section):
 
                 session = sportbit_api.create_session()
 
-                sportbit_api.login(session)
+                sportbit_api.login(
+                    session
+                )
 
                 event = zoek_event(
                     session=session,
@@ -173,18 +193,23 @@ def voer_inschrijving_uit(section):
                         "(bijvoorbeeld feestdag/kerstWOD)."
                     )
 
-                print("Event gevonden:")
-
                 print(
-                    f"  ID         : {event.get('id')}"
+                    "Event gevonden:"
                 )
 
                 print(
-                    f"  Titel      : {event.get('titel')}"
+                    f"  ID         : "
+                    f"{event.get('id')}"
                 )
 
                 print(
-                    f"  Start      : {event.get('start')}"
+                    f"  Titel      : "
+                    f"{event.get('titel')}"
+                )
+
+                print(
+                    f"  Start      : "
+                    f"{event.get('start')}"
                 )
 
                 print(
@@ -197,7 +222,9 @@ def voer_inschrijving_uit(section):
                     f"{event.get('maxDeelnemers')}"
                 )
 
-                if event.get("aangemeld"):
+                if event.get(
+                    "aangemeld"
+                ):
 
                     print(
                         "\nJe bent al aangemeld."
@@ -205,7 +232,9 @@ def voer_inschrijving_uit(section):
 
                     resultaat = True
 
-                elif event.get("opWachtlijst"):
+                elif event.get(
+                    "opWachtlijst"
+                ):
 
                     print(
                         "\nJe staat al op de wachtlijst."
@@ -233,8 +262,10 @@ def voer_inschrijving_uit(section):
                     "\nInschrijving succesvol."
                 )
 
-                # Direct na de actie de actuele status
-                # opnieuw bij SportBit ophalen.
+                # -------------------------------------------------
+                # Direct na de actie actuele status ophalen
+                # -------------------------------------------------
+
                 try:
 
                     vernieuw_status(
@@ -260,7 +291,9 @@ def voer_inschrijving_uit(section):
 
         log = output.getvalue()
 
-        set_last_output(log)
+        set_last_output(
+            log
+        )
 
         try:
 
@@ -284,7 +317,9 @@ def voer_inschrijving_uit(section):
 
     log = output.getvalue()
 
-    set_last_output(log)
+    set_last_output(
+        log
+    )
 
     return resultaat
 

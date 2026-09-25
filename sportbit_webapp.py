@@ -1375,8 +1375,17 @@ def scheduler_instellingen():
     return enabled, tijd, timezone_naam
 
 
+
+
 def voer_automatische_inschrijvingen_uit():
-    """Behandel iedere concrete doel-les maximaal één keer automatisch."""
+    """
+    Voer automatische inschrijvingen uit voor concrete lessen
+    waarvan het registratievenster vandaag opent.
+
+    De bestaande functionaliteit voor handmatig overslaan,
+    persistent afgehandeld-state en opnieuw proberen blijft
+    behouden.
+    """
 
     config = lees_config_parser()
 
@@ -1386,66 +1395,423 @@ def voer_automatische_inschrijvingen_uit():
         if section.startswith("inschrijving_")
     ]
 
+    # ---------------------------------------------------------
+    # Tijdstip van deze scheduler-run
+    # ---------------------------------------------------------
+
+    try:
+
+        _, _, timezone_naam = (
+            scheduler_instellingen()
+        )
+
+        timezone = ZoneInfo(
+            timezone_naam
+        )
+
+        nu = datetime.now(
+            timezone
+        )
+
+    except Exception:
+
+        nu = datetime.now()
+        timezone_naam = "onbekend"
+
+    vandaag = nu.date()
+
     schrijf_log("")
-    schrijf_log("=" * 55)
-    schrijf_log("Automatische SportBit-scheduler")
-    schrijf_log("=" * 55)
+    schrijf_log("=" * 65)
+    schrijf_log(
+        "AUTOMATISCHE SPORTBIT-SCHEDULER"
+    )
+    schrijf_log("=" * 65)
+
+    schrijf_log(
+        f"Scheduler-run gestart: "
+        f"{nu.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+    )
+
+    schrijf_log(
+        f"Tijdzone: {timezone_naam}"
+    )
+
+    schrijf_log(
+        f"Datum: {vandaag}"
+    )
+
+    schrijf_log(
+        f"Aantal geconfigureerde inschrijvingen: "
+        f"{len(secties)}"
+    )
 
     if not secties:
-        schrijf_log("Geen inschrijvingen geconfigureerd.")
+
+        schrijf_log(
+            "Geen inschrijvingen geconfigureerd.",
+            "warning",
+        )
+
+        schrijf_log(
+            "Scheduler-run beëindigd."
+        )
+
+        schrijf_log("=" * 65)
+
         return
 
+    # ---------------------------------------------------------
+    # Iedere automatische inschrijving controleren
+    # ---------------------------------------------------------
+
     for section in secties:
+
+        schrijf_log("")
+        schrijf_log(
+            "-" * 65
+        )
+        schrijf_log(
+            f"[{section}] START"
+        )
+        schrijf_log(
+            "-" * 65
+        )
+
         try:
-            dag = config.get(section, "dag").strip().lower()
-            tijd = parse_tijd(config.get(section, "tijd").strip())
-            les = config.get(section, "les").strip()
-            doel = volgende_datum(dag, tijd)
+
+            # -------------------------------------------------
+            # Configuratie
+            # -------------------------------------------------
+
+            dag = config.get(
+                section,
+                "dag",
+            ).strip().lower()
+
+            tijd = parse_tijd(
+                config.get(
+                    section,
+                    "tijd",
+                ).strip()
+            )
+
+            les = config.get(
+                section,
+                "les",
+            ).strip()
+
+            schrijf_log(
+                f"[{section}] Configuratie:"
+            )
+
+            schrijf_log(
+                f"[{section}]   Dag  : {dag}"
+            )
+
+            schrijf_log(
+                f"[{section}]   Tijd : "
+                f"{tijd.strftime('%H:%M')}"
+            )
+
+            schrijf_log(
+                f"[{section}]   Les  : {les}"
+            )
+
+            # -------------------------------------------------
+            # Twee concrete toekomstige lessen bepalen
+            # -------------------------------------------------
+
+            eerste = volgende_datum(
+                dag,
+                tijd,
+            )
+
+            if eerste is None:
+
+                schrijf_log(
+                    f"[{section}] Geen eerste doelmoment gevonden.",
+                    "warning",
+                )
+
+                continue
+
+            tweede = eerste + timedelta(
+                days=7
+            )
+
+            schrijf_log(
+                f"[{section}] Eerstvolgende les: "
+                f"{eerste.strftime('%Y-%m-%d %H:%M')}"
+            )
+
+            schrijf_log(
+                f"[{section}] Daaropvolgende les: "
+                f"{tweede.strftime('%Y-%m-%d %H:%M')}"
+            )
+
+            # -------------------------------------------------
+            # Zoek de concrete les waarvan de registratie
+            # vandaag opent.
+            # -------------------------------------------------
+
+            doel = None
+
+            for kandidaat in (
+                eerste,
+                tweede,
+            ):
+
+                openingsdatum = (
+                    kandidaat.date()
+                    - timedelta(days=7)
+                )
+
+                schrijf_log(
+                    f"[{section}] Controle doel "
+                    f"{kandidaat.strftime('%Y-%m-%d %H:%M')}: "
+                    f"registratie opent op "
+                    f"{openingsdatum}"
+                )
+
+                if openingsdatum == vandaag:
+
+                    doel = kandidaat
+
+                    schrijf_log(
+                        f"[{section}] REGISTRATIE OPENT VANDAAG "
+                        f"VOOR DEZE LES."
+                    )
+
+                    break
+
+            # -------------------------------------------------
+            # Geen les waarvan registratie vandaag opent
+            # -------------------------------------------------
 
             if doel is None:
-                schrijf_log(f"{section}: geen doelmoment gevonden.", "warning")
+
+                schrijf_log(
+                    f"[{section}] Geen concrete les gevonden "
+                    f"waarvan de registratie vandaag opent."
+                )
+
+                schrijf_log(
+                    f"[{section}] Geen actie nodig."
+                )
+
                 continue
 
             datum = doel.date()
 
-            if is_handmatig_overgeslagen(section, datum, les, tijd):
-                schrijf_log(
-                    f"{section}: {datum} {tijd.strftime('%H:%M')} overgeslagen "
-                    "omdat deze doel-les handmatig is geannuleerd."
+            schrijf_log(
+                f"[{section}] CONCRETE DOEL-LES:"
+            )
+
+            schrijf_log(
+                f"[{section}]   Datum : {datum}"
+            )
+
+            schrijf_log(
+                f"[{section}]   Tijd  : "
+                f"{tijd.strftime('%H:%M')}"
+            )
+
+            schrijf_log(
+                f"[{section}]   Les   : {les}"
+            )
+
+            # -------------------------------------------------
+            # Handmatig overgeslagen?
+            # -------------------------------------------------
+
+            handmatig_overgeslagen = (
+                is_handmatig_overgeslagen(
+                    section,
+                    datum,
+                    les,
+                    tijd,
                 )
+            )
+
+            schrijf_log(
+                f"[{section}] Handmatig overgeslagen: "
+                f"{'JA' if handmatig_overgeslagen else 'NEE'}"
+            )
+
+            if handmatig_overgeslagen:
+
+                schrijf_log(
+                    f"[{section}] ACTIE: doel-les overslaan "
+                    f"omdat deze handmatig is geannuleerd."
+                )
+
                 continue
 
-            if is_afgehandeld(section, datum, les, tijd):
-                schrijf_log(
-                    f"{section}: {datum} {tijd.strftime('%H:%M')} al automatisch "
-                    "afgehandeld."
+            # -------------------------------------------------
+            # Al automatisch afgehandeld?
+            # -------------------------------------------------
+
+            al_afgehandeld = (
+                is_afgehandeld(
+                    section,
+                    datum,
+                    les,
+                    tijd,
                 )
+            )
+
+            schrijf_log(
+                f"[{section}] Automatisch afgehandeld: "
+                f"{'JA' if al_afgehandeld else 'NEE'}"
+            )
+
+            if al_afgehandeld:
+
+                schrijf_log(
+                    f"[{section}] ACTIE: overslaan; "
+                    f"{datum} "
+                    f"{tijd.strftime('%H:%M')} "
+                    f"({les}) is al afgehandeld."
+                )
+
+                continue
+
+            # -------------------------------------------------
+            # Controle registratie-opening
+            # -------------------------------------------------
+
+            schrijf_log(
+                f"[{section}] Controleer of registratie "
+                f"daadwerkelijk open is..."
+            )
+
+            if not inschrijving_open(
+                datum
+            ):
+
+                schrijf_log(
+                    f"[{section}] Registratie is nog niet open."
+                )
+
+                schrijf_log(
+                    f"[{section}] Geen actie; volgende "
+                    f"scheduler-run probeert opnieuw."
+                )
+
                 continue
 
             schrijf_log(
-                f"Automatisch uitvoeren: {section} -> "
-                f"{datum} {tijd.strftime('%H:%M')} ({les})"
+                f"[{section}] Registratie is OPEN."
             )
 
-            resultaat = voer_inschrijving_uit(section)
+            # -------------------------------------------------
+            # Inschrijving uitvoeren voor concrete doel-les
+            # -------------------------------------------------
+
+            schrijf_log(
+                f"[{section}] ACTIE: inschrijving starten."
+            )
+
+            schrijf_log(
+                f"[{section}] Doel: "
+                f"{datum} "
+                f"{tijd.strftime('%H:%M')} · "
+                f"{les}"
+            )
+
+            resultaat = (
+                voer_inschrijving_uit(
+                    section,
+                    doel=doel,
+                )
+            )
+
+            schrijf_log(
+                f"[{section}] Resultaat "
+                f"voer_inschrijving_uit(): "
+                f"{resultaat!r}"
+            )
+
+            # -------------------------------------------------
+            # Succes
+            # -------------------------------------------------
 
             if resultaat:
-                markeer_afgehandeld(section, datum, les, tijd)
+
                 schrijf_log(
-                    f"{section}: succesvol uitgevoerd en gemarkeerd als afgehandeld."
+                    f"[{section}] SUCCES: inschrijving "
+                    f"uitgevoerd voor "
+                    f"{datum} {tijd.strftime('%H:%M')}."
                 )
-            else:
+
                 schrijf_log(
-                    f"{section}: niet uitgevoerd (momenteel niet open); "
-                    "wordt later opnieuw gecontroleerd."
+                    f"[{section}] Concrete doel-les "
+                    f"markeren als afgehandeld..."
+                )
+
+                markeer_afgehandeld(
+                    section,
+                    datum,
+                    les,
+                    tijd,
+                )
+
+                schrijf_log(
+                    f"[{section}] State succesvol opgeslagen."
+                )
+
+                schrijf_log(
+                    f"[{section}] AUTOMATISCHE ACTIE VOLTOOID."
+                )
+
+            # -------------------------------------------------
+            # Niet uitgevoerd
+            # -------------------------------------------------
+
+            else:
+
+                schrijf_log(
+                    f"[{section}] NIET UITGEVOERD."
+                )
+
+                schrijf_log(
+                    f"[{section}] De doel-les is niet als "
+                    f"afgehandeld gemarkeerd."
+                )
+
+                schrijf_log(
+                    f"[{section}] Een volgende scheduler-run "
+                    f"kan opnieuw proberen."
                 )
 
         except Exception as error:
+
             schrijf_log(
-                f"{section}: fout tijdens automatische "
+                f"[{section}] FOUT tijdens automatische "
                 f"inschrijving: {error}",
                 "exception",
             )
+
+        finally:
+
+            schrijf_log(
+                f"[{section}] EINDE"
+            )
+
+    # ---------------------------------------------------------
+    # Scheduler-run afgerond
+    # ---------------------------------------------------------
+
+    schrijf_log("")
+    schrijf_log("=" * 65)
+    schrijf_log(
+        "Scheduler-run beëindigd."
+    )
+    schrijf_log("=" * 65)
+    schrijf_log("")
+
+
+
 
 
 def scheduler_loop():
@@ -1516,6 +1882,11 @@ def scheduler_loop():
                 "exception",
             )
             time.sleep(30)
+
+
+
+
+
 
 
 def start_ingebouwde_scheduler():

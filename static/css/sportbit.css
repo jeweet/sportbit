@@ -456,6 +456,13 @@ select {
     letter-spacing: .8px;
 }
 
+.buddy-icon {
+    width: 14px;
+    height: 14px;
+    vertical-align: -3px;
+    fill: var(--gray-2);
+}
+
 .mobile-collapse-icon {
     display: none;
 }
@@ -512,14 +519,6 @@ select {
 
 .card-hyrox {
     --lesson-color: #f97316;
-}
-
-.card-personal-training {
-    --lesson-color: #06b6d4;
-}
-
-.card-corporate {
-    --lesson-color: #ec4899;
 }
 
 
@@ -1178,6 +1177,24 @@ form select option {
     margin-bottom: 4px;
 }
 
+.time-input {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.time-input input {
+    width: 48px;
+    min-width: 48px;
+    max-width: 48px;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.time-input span {
+    font-size: 18px;
+    font-weight: 600;
+}
 
 /* ============================================================
    TESTMAIL
@@ -1752,14 +1769,6 @@ form select option {
 
 .lesson-option[data-les="HYROX"] {
     --lesson-color: #f97316;
-}
-
-.lesson-option[data-les="Personal Training"] {
-    --lesson-color: #06b6d4;
-}
-
-.lesson-option[data-les="Corporate"] {
-    --lesson-color: #ec4899;
 }
 
 

@@ -143,16 +143,41 @@
             Controle uitvoeren om
         </label>
 
-        <input
-            id="SPORTBIT_SCHEDULER_TIME"
-            name="SPORTBIT_SCHEDULER_TIME"
-            type="text"
-            value="{{ settings.SPORTBIT_SCHEDULER_TIME }}"
-            pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
-            maxlength="5"
-            inputmode="numeric"
-            required
-        >
+<div class="time-input">
+    <input
+        id="SPORTBIT_SCHEDULER_TIME_HH"
+        type="text"
+        inputmode="numeric"
+        maxlength="2"
+        pattern="[0-9]{2}"
+        placeholder="00"
+        required
+    >
+
+    <span>:</span>
+
+    <input
+        id="SPORTBIT_SCHEDULER_TIME_MM"
+        type="text"
+        inputmode="numeric"
+        maxlength="2"
+        pattern="[0-9]{2}"
+        placeholder="00"
+        required
+    >
+
+    <input
+        id="SPORTBIT_SCHEDULER_TIME"
+        name="SPORTBIT_SCHEDULER_TIME"
+        type="hidden"
+        value="{{ settings.SPORTBIT_SCHEDULER_TIME }}"
+    >
+</div>
+
+
+
+
+
 
         <p class="hint">
             De scheduler controleert dagelijks rond dit tijdstip

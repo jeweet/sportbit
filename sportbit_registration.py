@@ -41,8 +41,10 @@ def vernieuw_status(
     het event niet gevonden kan worden.
     """
 
-    print()
-    print("Status opnieuw ophalen...")
+    print(
+        f"[STATUS] {les} {datum} {tijd.strftime('%H:%M')} "
+        "→ actuele status ophalen"
+    )
 
     event = zoek_event(
         session=session,
@@ -52,9 +54,12 @@ def vernieuw_status(
     )
 
     if event is None:
+
         print(
-            "Event niet gevonden bij statuscontrole."
+            f"[STATUS] {les} {datum} {tijd.strftime('%H:%M')} "
+            "→ event niet gevonden"
         )
+
         return None
 
     status = bepaal_event_status(
@@ -72,8 +77,8 @@ def vernieuw_status(
     )
 
     print(
-        "Status bijgewerkt: "
-        f"{status}"
+        f"[STATUS] {les} {datum} {tijd.strftime('%H:%M')} "
+        f"→ {status}"
     )
 
     return status
@@ -135,13 +140,20 @@ def voer_inschrijving_uit(
                 "Kon doelmoment niet bepalen."
             )
 
+    datum = doel.date()
+    tijd_weergave = tijd.strftime("%H:%M")
+
     # ---------------------------------------------------------
     # Bescherming tegen directe/automatische aanroepen
     # ---------------------------------------------------------
 
-    if not inschrijving_open(
-        doel.date()
-    ):
+    if not inschrijving_open(datum):
+
+        print(
+            f"[INSCHRIJVING] {les} {datum} {tijd_weergave} "
+            "→ registratie nog niet open"
+        )
+
         return False
 
     output = io.StringIO()
@@ -154,20 +166,10 @@ def voer_inschrijving_uit(
 
             with redirect_stdout(output):
 
-                print("=" * 50)
                 print(
-                    f"Inschrijven: {section}"
+                    f"[INSCHRIJVING] {les} {datum} {tijd_weergave} "
+                    "→ gestart"
                 )
-                print(
-                    f"Les   : {les}"
-                )
-                print(
-                    f"Datum : {doel.date()}"
-                )
-                print(
-                    f"Tijd  : {tijd.strftime('%H:%M')}"
-                )
-                print()
 
                 session = sportbit_api.create_session()
 
@@ -177,7 +179,7 @@ def voer_inschrijving_uit(
 
                 event = zoek_event(
                     session=session,
-                    datum=doel.date(),
+                    datum=datum,
                     les=les,
                     tijd=tijd,
                 )
@@ -186,58 +188,41 @@ def voer_inschrijving_uit(
 
                     raise RuntimeError(
                         f"Geen '{les}' gevonden om "
-                        f"{tijd.strftime('%H:%M')} "
-                        f"op {doel.date()}. "
+                        f"{tijd_weergave} op {datum}. "
                         "Mogelijk is de les gewijzigd, "
                         "geannuleerd of vervangen "
                         "(bijvoorbeeld feestdag/kerstWOD)."
                     )
 
-                print(
-                    "Event gevonden:"
+                deelnemers = event.get(
+                    "aantalDeelnemers",
+                    "-",
+                )
+
+                maximum = event.get(
+                    "maxDeelnemers",
+                    "-",
                 )
 
                 print(
-                    f"  ID         : "
-                    f"{event.get('id')}"
+                    f"[INSCHRIJVING] {les} {datum} {tijd_weergave} "
+                    f"→ event gevonden ({deelnemers}/{maximum})"
                 )
 
-                print(
-                    f"  Titel      : "
-                    f"{event.get('titel')}"
-                )
-
-                print(
-                    f"  Start      : "
-                    f"{event.get('start')}"
-                )
-
-                print(
-                    "  Deelnemers : "
-                    f"{event.get('aantalDeelnemers')}"
-                )
-
-                print(
-                    "  Maximum    : "
-                    f"{event.get('maxDeelnemers')}"
-                )
-
-                if event.get(
-                    "aangemeld"
-                ):
+                if event.get("aangemeld"):
 
                     print(
-                        "\nJe bent al aangemeld."
+                        f"[INSCHRIJVING] {les} {datum} {tijd_weergave} "
+                        "→ al ingeschreven"
                     )
 
                     resultaat = True
 
-                elif event.get(
-                    "opWachtlijst"
-                ):
+                elif event.get("opWachtlijst"):
 
                     print(
-                        "\nJe staat al op de wachtlijst."
+                        f"[INSCHRIJVING] {les} {datum} {tijd_weergave} "
+                        "→ al op wachtlijst"
                     )
 
                     resultaat = True
@@ -259,7 +244,8 @@ def voer_inschrijving_uit(
                     )
 
                 print(
-                    "\nInschrijving succesvol."
+                    f"[INSCHRIJVING] {les} {datum} {tijd_weergave} "
+                    "→ succesvol"
                 )
 
                 # -------------------------------------------------
@@ -271,7 +257,7 @@ def voer_inschrijving_uit(
                     vernieuw_status(
                         session=session,
                         section=section,
-                        datum=doel.date(),
+                        datum=datum,
                         les=les,
                         tijd=tijd,
                     )
@@ -279,14 +265,15 @@ def voer_inschrijving_uit(
                 except Exception as status_error:
 
                     print(
-                        "Status opnieuw ophalen mislukt: "
-                        f"{status_error}"
+                        f"[STATUS] {les} {datum} {tijd_weergave} "
+                        f"→ status ophalen mislukt: {status_error}"
                     )
 
     except Exception as error:
 
         print(
-            f"\nFout: {error}"
+            f"[INSCHRIJVING] {les} {datum} {tijd_weergave} "
+            f"→ fout: {error}"
         )
 
         log = output.getvalue()
@@ -300,7 +287,7 @@ def voer_inschrijving_uit(
             notify.notify_inschrijving_mislukt(
                 section=section,
                 les=les,
-                datum=doel.date(),
+                datum=datum,
                 tijd=tijd,
                 reden=str(error),
                 log=log,
@@ -309,7 +296,7 @@ def voer_inschrijving_uit(
         except Exception as notify_error:
 
             print(
-                "\nNotificatie mislukt: "
+                f"[NOTIFICATIE] Inschrijving mislukt: "
                 f"{notify_error}"
             )
 
@@ -357,6 +344,8 @@ def uitschrijven_les(
         tijd_string
     )
 
+    tijd_weergave = tijd.strftime("%H:%M")
+
     output = io.StringIO()
 
     resultaat = False
@@ -367,22 +356,16 @@ def uitschrijven_les(
 
             with redirect_stdout(output):
 
-                print("=" * 50)
                 print(
-                    f"Uitschrijven: {section}"
+                    f"[UITSCHRIJVING] {les} {datum} {tijd_weergave} "
+                    "→ gestart"
                 )
-                print(f"Les   : {les}")
-                print(
-                    f"Datum : {datum}"
-                )
-                print(
-                    f"Tijd  : {tijd.strftime('%H:%M')}"
-                )
-                print()
 
                 session = sportbit_api.create_session()
 
-                sportbit_api.login(session)
+                sportbit_api.login(
+                    session
+                )
 
                 event = zoek_event(
                     session=session,
@@ -395,32 +378,14 @@ def uitschrijven_les(
 
                     raise RuntimeError(
                         f"Geen '{les}' gevonden om "
-                        f"{tijd.strftime('%H:%M')} "
-                        f"op {datum}."
+                        f"{tijd_weergave} op {datum}."
                     )
 
-                print("Event gevonden:")
-
                 print(
-                    f"  ID         : {event.get('id')}"
-                )
-
-                print(
-                    f"  Titel      : {event.get('titel')}"
-                )
-
-                print(
-                    f"  Start      : {event.get('start')}"
-                )
-
-                print(
-                    "  Aangemeld  : "
-                    f"{event.get('aangemeld')}"
-                )
-
-                print(
-                    "  Wachtlijst : "
-                    f"{event.get('opWachtlijst')}"
+                    f"[UITSCHRIJVING] {les} {datum} {tijd_weergave} "
+                    f"→ event gevonden "
+                    f"(aangemeld={event.get('aangemeld')}, "
+                    f"wachtlijst={event.get('opWachtlijst')})"
                 )
 
                 if (
@@ -429,8 +394,8 @@ def uitschrijven_les(
                 ):
 
                     print(
-                        "\nJe bent niet ingeschreven "
-                        "voor deze les."
+                        f"[UITSCHRIJVING] {les} {datum} {tijd_weergave} "
+                        "→ al niet ingeschreven"
                     )
 
                     resultaat = True
@@ -452,7 +417,8 @@ def uitschrijven_les(
                     )
 
                 print(
-                    "\nUitschrijving succesvol."
+                    f"[UITSCHRIJVING] {les} {datum} {tijd_weergave} "
+                    "→ succesvol"
                 )
 
                 # Een handmatige uitschrijving geldt alleen voor deze
@@ -463,6 +429,11 @@ def uitschrijven_les(
                     datum=datum,
                     les=les,
                     tijd=tijd,
+                )
+
+                print(
+                    f"[SKIP] {les} {datum} {tijd_weergave} "
+                    "→ automatische herinschrijving geblokkeerd"
                 )
 
                 # Direct na de DELETE de actuele status
@@ -480,14 +451,15 @@ def uitschrijven_les(
                 except Exception as status_error:
 
                     print(
-                        "Status opnieuw ophalen mislukt: "
-                        f"{status_error}"
+                        f"[STATUS] {les} {datum} {tijd_weergave} "
+                        f"→ status ophalen mislukt: {status_error}"
                     )
 
     except Exception as error:
 
         print(
-            f"\nFout: {error}"
+            f"[UITSCHRIJVING] {les} {datum} {tijd_weergave} "
+            f"→ fout: {error}"
         )
 
         log = output.getvalue()
@@ -508,7 +480,7 @@ def uitschrijven_les(
         except Exception as notify_error:
 
             print(
-                "\nNotificatie mislukt: "
+                f"[NOTIFICATIE] Uitschrijving mislukt: "
                 f"{notify_error}"
             )
 
@@ -516,6 +488,8 @@ def uitschrijven_les(
 
     log = output.getvalue()
 
-    set_last_output(log)
+    set_last_output(
+        log
+    )
 
     return resultaat

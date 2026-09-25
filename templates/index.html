@@ -2,87 +2,76 @@
 
 {% block content %}
 
-<div class="page-title"> <h1>Overzicht</h1>
-<p>
-    Automatisch ingeschreven lessen
-</p>
-
+<div class="page-title">
+    <h1>Overzicht</h1>
+    <p>Automatisch ingeschreven lessen</p>
 </div>
 
 {% if inschrijvingen %}
 
 <div class="cards">
-{% for item in inschrijvingen %}
 
-<section
-    class="card card-{{ item.les|lower|replace(' ', '-') }} mobile-collapsed"
->
+    {% for item in inschrijvingen %}
 
-    <div
-        class="card-header mobile-collapse-toggle"
-        role="button"
-        tabindex="0"
-        aria-expanded="false"
+    <section
+        class="card card-{{ item.les|lower|replace(' ', '-') }} mobile-collapsed"
     >
 
-        <div>
+        <div
+            class="card-header mobile-collapse-toggle"
+            role="button"
+            tabindex="0"
+            aria-expanded="false"
+        >
+            <div>
+                <h2>{{ item.les }}</h2>
 
-            <h2>
-                {{ item.les }}
-            </h2>
-
-            <div class="schedule">
-                {{ item.dag|capitalize }}
-                &nbsp;·&nbsp;
-                {{ item.tijd }}
+                <div class="schedule">
+                    {{ item.dag|capitalize }}
+                    &nbsp;·&nbsp;
+                    {{ item.tijd }}
+                </div>
             </div>
 
-        </div>
-
-        <span
-            class="mobile-collapse-icon"
-            aria-hidden="true"
-        >
-            ▾
-        </span>
-
-    </div>
-
-
-    <div class="next-lessons">
-
-        <div class="status-label">
-            Eerstvolgende 2 lessen
+            <span
+                class="mobile-collapse-icon"
+                aria-hidden="true"
+            >▾</span>
         </div>
 
 
-        {% for les in item.lessen %}
+        <div class="next-lessons">
 
-        <div class="next-lesson">
+            <div class="status-label">
+                Eerstvolgende 2 lessen
+            </div>
 
-            <div>
+            {% for les in item.lessen %}
 
-                <div class="next-lesson-date">
+            <div class="next-lesson">
 
-                    {% set dagen_namen = [
-                        "Maandag",
-                        "Dinsdag",
-                        "Woensdag",
-                        "Donderdag",
-                        "Vrijdag",
-                        "Zaterdag",
-                        "Zondag"
-                    ] %}
+                <div>
+                    <div class="next-lesson-date">
 
-                    {{ dagen_namen[les.datum.weekday()] }}
-                    {{ les.datum.strftime("%d-%m · %H:%M") }}
+                        {% set dagen_namen = [
+                            "Maandag",
+                            "Dinsdag",
+                            "Woensdag",
+                            "Donderdag",
+                            "Vrijdag",
+                            "Zaterdag",
+                            "Zondag"
+                        ] %}
 
-                </div>
+                        {{ dagen_namen[les.datum.weekday()] }}
+                        {{ les.datum.strftime("%d-%m · %H:%M") }}
 
+                    </div>
 
-                <div class="next-lesson-meta">
 
                     {% if les.event %}
+
+                    <div class="next-lesson-meta">
 
                         {{ les.event.get(
                             'aantalDeelnemers',
@@ -93,39 +82,84 @@
                         ) }}
                         deelnemers
 
-
                         {% if les.event.get('trainer') %}
 
-                            &nbsp;·&nbsp;
+                        &nbsp;·&nbsp;
 
-                            {{ les.event.get(
-                                'trainer',
-                                {}
-                            ).get(
-                                'naam',
-                                '-'
-                            ) }}
+                        {{ les.event.get(
+                            'trainer',
+                            {}
+                        ).get(
+                            'naam',
+                            '-'
+                        ) }}
 
                         {% endif %}
 
 
                         {% if les.event.get('buddyAangemeld') %}
 
-                            &nbsp;·&nbsp;
+                        &nbsp;·&nbsp;
 
-                            <img
-                                src="{{
-                                    url_for(
-                                        'static',
-                                        filename='images/person.svg'
-                                    )
-                                }}"
-                                class="buddy-icon"
-                                alt="Buddy aangemeld"
-                                title="Buddy aangemeld"
-                            >
+                        <svg
+                            class="buddy-icon"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            aria-label="Buddy aangemeld"
+                            title="Buddy aangemeld"
+                        >
+                            <circle cx="12" cy="7" r="4"/>
+                            <path d="M4 21c0-4.42 3.58-8 8-8s8 3.58 8 8H4z"/>
+                        </svg>
 
                         {% endif %}
+
+                    </div>
+
+                    {% endif %}
+
+                </div>
+
+
+                <div class="next-lesson-status">
+
+                    <span class="status status-{{ les.status.css }}">
+                        {{ les.status.text }}
+                    </span>
+
+
+                    {% if les.status.code in [
+                        "ingeschreven",
+                        "wachtlijst"
+                    ] %}
+
+                    <form
+                        method="post"
+                        class="scroll-preserve"
+                        action="{{
+                            url_for(
+                                'uitschrijven',
+                                section=item.naam,
+                                datum=les.datum.date().isoformat()
+                            )
+                        }}"
+                    >
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="{{ csrf_token() }}"
+                        >
+
+                        <button
+                            type="submit"
+                            class="lesson-unregister"
+                            data-confirm="Uitschrijven voor deze les?"
+                            aria-label="Uitschrijven"
+                            title="Uitschrijven"
+                        >
+                            Uitschrijven
+                        </button>
+                    </form>
 
                     {% endif %}
 
@@ -133,161 +167,106 @@
 
             </div>
 
-
-            <div class="next-lesson-status">
-
-                <span
-                    class="status status-{{ les.status.css }}"
-                >
-                    {{ les.status.text }}
-                </span>
-
-
-                {% if les.status.code in [
-                    "ingeschreven",
-                    "wachtlijst"
-                ] %}
-
-                <form
-                    method="post"
-                    class="scroll-preserve"
-                    action="{{
-                        url_for(
-                            'uitschrijven',
-                            section=item.naam,
-                            datum=les.datum.date().isoformat()
-                        )
-                    }}"
-                >
-
-                    <input
-                        type="hidden"
-                        name="csrf_token"
-                        value="{{ csrf_token() }}"
-                    >
-
-                    <button
-                        type="submit"
-                        class="lesson-unregister"
-                        data-confirm="Uitschrijven voor deze les?"
-                        aria-label="Uitschrijven"
-                        title="Uitschrijven"
-                    >
-                        Uitschrijven
-                    </button>
-
-                </form>
-
-                {% endif %}
-
-            </div>
+            {% endfor %}
 
         </div>
 
-        {% endfor %}
 
-    </div>
+        <div class="actions">
 
+            {% if item.status.code == "niet-ingeschreven" %}
 
-    <div class="actions">
-
-        {% if item.status.code == "niet-ingeschreven" %}
-
-        <form
-            method="post"
-            class="scroll-preserve"
-            action="{{
-                url_for(
-                    'run_inschrijving',
-                    section=item.naam
-                )
-            }}"
-        >
-
-            <input
-                type="hidden"
-                name="csrf_token"
-                value="{{ csrf_token() }}"
+            <form
+                method="post"
+                class="scroll-preserve"
+                action="{{
+                    url_for(
+                        'run_inschrijving',
+                        section=item.naam
+                    )
+                }}"
             >
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="{{ csrf_token() }}"
+                >
 
-            <button
-                type="submit"
-                class="button button-primary"
-                data-confirm="Nu proberen in te schrijven?"
+                <button
+                    type="submit"
+                    class="button button-primary"
+                    data-confirm="Nu proberen in te schrijven?"
+                >
+                    Nu inschrijven
+                </button>
+            </form>
+
+            {% endif %}
+
+
+            <a
+                href="{{
+                    url_for(
+                        'bewerk_inschrijving',
+                        section=item.naam
+                    )
+                }}"
+                class="button"
             >
-                Nu inschrijven
-            </button>
-
-        </form>
-
-        {% endif %}
+                Bewerken
+            </a>
 
 
-        <a
-            href="{{
-                url_for(
-                    'bewerk_inschrijving',
-                    section=item.naam
-                )
-            }}"
-            class="button"
-        >
-            Bewerken
-        </a>
-
-
-        <form
-            method="post"
-            class="scroll-preserve"
-            action="{{
-                url_for(
-                    'delete_inschrijving',
-                    section=item.naam
-                )
-            }}"
-        >
-
-            <input
-                type="hidden"
-                name="csrf_token"
-                value="{{ csrf_token() }}"
+            <form
+                method="post"
+                class="scroll-preserve"
+                action="{{
+                    url_for(
+                        'delete_inschrijving',
+                        section=item.naam
+                    )
+                }}"
             >
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="{{ csrf_token() }}"
+                >
 
-            <button
-                type="submit"
-                class="button button-danger"
-                data-confirm="Deze inschrijving verwijderen?"
-            >
-                Verwijderen
-            </button>
+                <button
+                    type="submit"
+                    class="button button-danger"
+                    data-confirm="Deze inschrijving verwijderen?"
+                >
+                    Verwijderen
+                </button>
+            </form>
 
-        </form>
+        </div>
 
-    </div>
+    </section>
 
-</section>
-
-{% endfor %}
+    {% endfor %}
 
 </div>
+
 
 {% else %}
 
 <section class="card empty">
-<h2>
-    Geen inschrijvingen
-</h2>
 
-<p>
-    Voeg je eerste SportBit-inschrijving toe.
-</p>
+    <h2>Geen inschrijvingen</h2>
 
-<a
-    href="{{ url_for('nieuwe_inschrijving') }}"
-    class="button button-primary"
->
-    Inschrijving toevoegen
-</a>
+    <p>
+        Voeg je eerste SportBit-inschrijving toe.
+    </p>
+
+    <a
+        href="{{ url_for('nieuwe_inschrijving') }}"
+        class="button button-primary"
+    >
+        Inschrijving toevoegen
+    </a>
 
 </section>
 

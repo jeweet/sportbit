@@ -119,7 +119,7 @@ def get_of_maak_secret_key():
 
     tijdelijke_file.write_text(
         nieuwe_sleutel,
-        encoding="utf-8",
+        encoding="utf-8"
     )
 
     tijdelijke_file.replace(
@@ -218,6 +218,32 @@ def sla_instellingen_op():
 
     waarden = dotenv_values(
         ENV_FILE
+    )
+
+    # Bewaar de huidige schedulerinstellingen voordat
+    # eventuele wijzigingen worden toegepast.
+    oude_scheduler_instellingen = (
+        str(
+            waarden.get(
+                "SPORTBIT_SCHEDULER_ENABLED",
+                "",
+            )
+            or ""
+        ).strip().lower(),
+        str(
+            waarden.get(
+                "SPORTBIT_SCHEDULER_TIME",
+                "",
+            )
+            or ""
+        ).strip(),
+        str(
+            waarden.get(
+                "SPORTBIT_SCHEDULER_TIMEZONE",
+                "",
+            )
+            or ""
+        ).strip(),
     )
 
     for naam in ENV_SETTINGS:
@@ -323,6 +349,44 @@ def sla_instellingen_op():
     )
 
     app.secret_key = get_of_maak_secret_key()
+
+    # Lees de nieuwe schedulerinstellingen opnieuw uit de .env.
+    nieuwe_waarden = dotenv_values(
+        ENV_FILE
+    )
+
+    nieuwe_scheduler_instellingen = (
+        str(
+            nieuwe_waarden.get(
+                "SPORTBIT_SCHEDULER_ENABLED",
+                "",
+            )
+            or ""
+        ).strip().lower(),
+        str(
+            nieuwe_waarden.get(
+                "SPORTBIT_SCHEDULER_TIME",
+                "",
+            )
+            or ""
+        ).strip(),
+        str(
+            nieuwe_waarden.get(
+                "SPORTBIT_SCHEDULER_TIMEZONE",
+                "",
+            )
+            or ""
+        ).strip(),
+    )
+
+    # Alleen resetten als een schedulerinstelling
+    # daadwerkelijk gewijzigd is.
+    if (
+        oude_scheduler_instellingen
+        != nieuwe_scheduler_instellingen
+    ):
+
+        reset_scheduler_trigger()
 
 
 # ============================================================
@@ -446,9 +510,6 @@ class LogStdout:
 
         regel = tekst.rstrip()
 
-        # Bewuste, gestructureerde logging uit de
-        # SportBit-modules niet nogmaals voorzien van
-        # een extra STDOUT-prefix.
         if regel.startswith(
             (
                 "[INSCHRIJVING]",
@@ -705,9 +766,6 @@ def logout():
 
 @app.route("/")
 def index():
-
-    # Bewust niet loggen: een normale paginaweergave
-    # is geen relevante systeemgebeurtenis.
 
     inschrijvingen = lees_config()
 
@@ -1437,6 +1495,19 @@ _scheduler_last_run = None
 _scheduler_started = False
 
 
+def reset_scheduler_trigger():
+    """Sta na gewijzigde schedulerinstellingen een nieuwe run toe."""
+
+    global _scheduler_last_run
+
+    with _scheduler_lock:
+        _scheduler_last_run = None
+
+    schrijf_log(
+        "Scheduler-trigger gereset na wijziging van schedulerinstellingen."
+    )
+
+
 def scheduler_instellingen():
     """Lees de schedulerinstellingen rechtstreeks uit de actuele .env."""
 
@@ -1480,26 +1551,17 @@ def scheduler_instellingen():
 
 
 def voer_automatische_inschrijvingen_uit():
-    """
-    Voer automatische inschrijvingen uit voor concrete lessen
-    waarvan het registratievenster vandaag opent.
-    """
-
     config = lees_config_parser()
 
     secties = [
         section
         for section in config.sections()
-        if section.startswith(
-            "inschrijving_"
-        )
+        if section.startswith("inschrijving_")
     ]
 
     try:
 
-        _, _, timezone_naam = (
-            scheduler_instellingen()
-        )
+        _, _, timezone_naam = scheduler_instellingen()
 
         timezone = ZoneInfo(
             timezone_naam
@@ -1565,6 +1627,13 @@ def voer_automatische_inschrijvingen_uit():
             )
 
             if eerste is None:
+
+                schrijf_log(
+                    f"[{section}] {les} "
+                    "→ configuratie ongeldig",
+                    "warning",
+                )
+
                 continue
 
             tweede = (
@@ -1587,9 +1656,17 @@ def voer_automatische_inschrijvingen_uit():
                 if openingsdatum == vandaag:
 
                     doel = kandidaat
+
                     break
 
+            # Iedere inschrijving wordt zichtbaar gecontroleerd.
             if doel is None:
+
+                schrijf_log(
+                    f"[{section}] {les} "
+                    "→ geen actie nodig"
+                )
+
                 continue
 
             datum = doel.date()
@@ -1599,10 +1676,6 @@ def voer_automatische_inschrijvingen_uit():
                 f"{les} "
                 f"{datum} "
                 f"{tijd.strftime('%H:%M')}"
-            )
-
-            schrijf_log(
-                log_prefix
             )
 
             if is_handmatig_overgeslagen(
@@ -1654,9 +1727,11 @@ def voer_automatische_inschrijvingen_uit():
                 "→ inschrijving gestart"
             )
 
-            resultaat = voer_inschrijving_uit(
-                section,
-                doel=doel,
+            resultaat = (
+                voer_inschrijving_uit(
+                    section,
+                    doel=doel,
+                )
             )
 
             if resultaat:
@@ -1682,7 +1757,8 @@ def voer_automatische_inschrijvingen_uit():
 
                 schrijf_log(
                     f"{log_prefix} "
-                    "→ niet uitgevoerd; volgende run probeert opnieuw",
+                    "→ niet uitgevoerd; "
+                    "volgende run probeert opnieuw",
                     "warning",
                 )
 
@@ -1741,6 +1817,7 @@ def scheduler_loop():
             if not enabled:
 
                 time.sleep(10)
+
                 continue
 
             try:
@@ -1758,6 +1835,7 @@ def scheduler_loop():
                 )
 
                 time.sleep(60)
+
                 continue
 
             nu = datetime.now(
@@ -1817,11 +1895,13 @@ def start_ingebouwde_scheduler():
     global _scheduler_started
 
     if _scheduler_started:
+
         return
 
     with _scheduler_lock:
 
         if _scheduler_started:
+
             return
 
         _scheduler_started = True
@@ -1871,6 +1951,7 @@ def lees_logbestand(max_regels=500):
     """Lees de laatste logregels uit het permanente logbestand."""
 
     if not LOG_FILE.exists():
+
         return "Nog geen logbestand beschikbaar."
 
     try:
@@ -1884,6 +1965,7 @@ def lees_logbestand(max_regels=500):
             regels = bestand.readlines()
 
         if not regels:
+
             return "Logbestand is nog leeg."
 
         return "".join(

@@ -9,7 +9,7 @@ import logging
 import threading
 import time
 from logging.handlers import RotatingFileHandler
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -329,6 +329,7 @@ from sportbit_dates import (
     DAGEN,
     parse_tijd,
     volgende_datum,
+    inschrijving_open,
 )
 
 from sportbit_events import (

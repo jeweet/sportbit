@@ -357,7 +357,6 @@ def notify_les_ontbreekt(
     inhoud = (
         "De SportBit-applicatie kon de "
         "verwachte les niet vinden.\n\n"
-        f"Inschrijving: {section}\n"
         f"Datum: {datum}\n"
         f"Tijd: {tijd}\n"
         f"Les: {les}\n"
@@ -415,7 +414,6 @@ def notify_inschrijving_mislukt(
 
     inhoud = (
         "Een SportBit-inschrijving is mislukt.\n\n"
-        f"Inschrijving: {section}\n"
         f"Fout: {fout}\n"
     )
 
@@ -477,7 +475,6 @@ def notify_inschrijving_gelukt(
 
     inhoud = (
         "De SportBit-inschrijving is succesvol uitgevoerd.\n\n"
-        f"Inschrijving: {section}\n"
         f"Datum: {datum}\n"
         f"Tijd: {tijd}\n"
         f"Les: {les}\n"

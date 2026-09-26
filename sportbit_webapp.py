@@ -7,7 +7,7 @@ import secrets
 import importlib
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from notify import send_test_ntfy
@@ -748,6 +748,7 @@ def index():
     return render_template(
         "index.html",
         inschrijvingen=inschrijvingen,
+        scheduler_status=lees_scheduler_status(),
     )
 
 
@@ -1454,38 +1455,42 @@ def instellingen():
 @app.post("/scheduler/nu-uitvoeren")
 def scheduler_nu_uitvoeren():
 
-    schrijf_log(
-        "HANDMATIGE SCHEDULERCONTROLE gestart."
-    )
+    schrijf_log("HANDMATIGE SCHEDULERCONTROLE gestart.")
 
     try:
+        try:
+            timezone_naam = scheduler_instellingen()[2]
+            timezone = ZoneInfo(timezone_naam)
+        except Exception:
+            timezone = None
+
+        with _scheduler_status_lock:
+            _scheduler_status["laatste_run"] = (
+                datetime.now(timezone) if timezone else datetime.now()
+            )
+            _scheduler_status["laatste_resultaat"] = "Bezig..."
+            _scheduler_status["fout"] = None
 
         voer_automatische_inschrijvingen_uit()
 
-        schrijf_log(
-            "HANDMATIGE SCHEDULERCONTROLE succesvol afgerond."
-        )
+        with _scheduler_status_lock:
+            _scheduler_status["laatste_resultaat"] = "Controle afgerond"
 
-        flash(
-            "Schedulercontrole uitgevoerd.",
-            "success",
-        )
+        schrijf_log("HANDMATIGE SCHEDULERCONTROLE succesvol afgerond.")
+        flash("Schedulercontrole uitgevoerd.", "success")
 
     except Exception as error:
+        with _scheduler_status_lock:
+            _scheduler_status["laatste_resultaat"] = "Mislukt"
+            _scheduler_status["fout"] = str(error)
 
         schrijf_log(
             f"HANDMATIGE SCHEDULERCONTROLE mislukt: {error}",
             "exception",
         )
+        flash(f"Schedulercontrole mislukt: {error}", "error")
 
-        flash(
-            f"Schedulercontrole mislukt: {error}",
-            "error",
-        )
-
-    return redirect(
-        url_for("instellingen")
-    )
+    return redirect(url_for("index"))
 
 
 # ============================================================
@@ -1601,6 +1606,15 @@ _scheduler_last_run = None
 
 _scheduler_started = False
 
+_scheduler_status = {
+    "actief": False,
+    "laatste_run": None,
+    "volgende_run": None,
+    "laatste_resultaat": None,
+    "fout": None,
+}
+
+_scheduler_status_lock = threading.Lock()
 
 def scheduler_instellingen():
     """Lees schedulerinstellingen rechtstreeks uit de actuele .env."""
@@ -1644,8 +1658,83 @@ def scheduler_instellingen():
     )
 
 
-def voer_automatische_inschrijvingen_uit():
-    """Behandel iedere concrete doel-les maximaal één keer automatisch."""
+def lees_scheduler_status():
+    """Geef de actuele schedulerstatus voor de homepage."""
+
+    enabled, ingestelde_tijd, timezone_naam = (
+        scheduler_instellingen()
+    )
+
+    try:
+        timezone = ZoneInfo(timezone_naam)
+        tijd = parse_tijd(ingestelde_tijd)
+        nu = datetime.now(timezone)
+
+        volgende = nu.replace(
+            hour=tijd.hour,
+            minute=tijd.minute,
+            second=0,
+            microsecond=0,
+        )
+
+        if volgende <= nu:
+            volgende += timedelta(days=1)
+
+    except Exception:
+        volgende = None
+
+    with _scheduler_status_lock:
+        status = dict(_scheduler_status)
+
+    status["actief"] = bool(enabled)
+    status["volgende_run"] = (
+        volgende if enabled else None
+    )
+
+    return status
+
+
+def lees_scheduler_status():
+    """Geef een veilige kopie van de actuele schedulerstatus."""
+
+    with _scheduler_status_lock:
+        status = dict(_scheduler_status)
+
+    enabled, ingestelde_tijd, timezone_naam = (
+        scheduler_instellingen()
+    )
+
+    status["actief"] = bool(enabled)
+
+    try:
+        timezone = ZoneInfo(timezone_naam)
+        nu = datetime.now(timezone)
+
+        if status["volgende_run"] is None:
+            volgende = nu.replace(
+                hour=ingestelde_tijd.hour,
+                minute=ingestelde_tijd.minute,
+                second=0,
+                microsecond=0,
+            )
+
+            if volgende <= nu:
+                volgende += timedelta(days=1)
+
+            status["volgende_run"] = volgende
+
+    except Exception:
+        pass
+
+    return status
+
+
+def voer_automatische_inschrijvingen_uit(testmodus=False):
+    """Behandel iedere concrete doel-les maximaal één keer automatisch.
+
+    In testmodus worden controles uitgevoerd en wordt gelogd
+    wat de scheduler zou doen, zonder echt in te schrijven.
+    """
 
     config = (
         lees_config_parser()
@@ -1664,19 +1753,20 @@ def voer_automatische_inschrijvingen_uit():
         onderwerp="scheduler",
     )
 
-    if not secties:
+    schrijf_log(
+        f"Modus: {'TESTMODUS' if testmodus else 'ECHT'}",
+        onderwerp="scheduler",
+    )
 
+    if not secties:
         schrijf_log(
             "Geen inschrijvingen geconfigureerd.",
             onderwerp="scheduler",
         )
-
         return
 
     for section in secties:
-
         try:
-
             dag = config.get(
                 section,
                 "dag",
@@ -1700,16 +1790,22 @@ def voer_automatische_inschrijvingen_uit():
             )
 
             if doel is None:
-
                 schrijf_log(
                     f"{section}: geen doelmoment gevonden.",
                     onderwerp="scheduler",
                     niveau="warning",
                 )
-
                 continue
 
             datum = doel.date()
+
+            schrijf_log(
+                f"{section}: doel-les "
+                f"{datum} "
+                f"{tijd.strftime('%H:%M')} "
+                f"({les})",
+                onderwerp="scheduler",
+            )
 
             if is_handmatig_overgeslagen(
                 section,
@@ -1717,7 +1813,6 @@ def voer_automatische_inschrijvingen_uit():
                 les,
                 tijd,
             ):
-
                 schrijf_log(
                     f"{section}: "
                     f"{datum} "
@@ -1726,7 +1821,6 @@ def voer_automatische_inschrijvingen_uit():
                     "doel-les handmatig is geannuleerd.",
                     onderwerp="scheduler",
                 )
-
                 continue
 
             if is_afgehandeld(
@@ -1735,7 +1829,6 @@ def voer_automatische_inschrijvingen_uit():
                 les,
                 tijd,
             ):
-
                 schrijf_log(
                     f"{section}: "
                     f"{datum} "
@@ -1743,7 +1836,17 @@ def voer_automatische_inschrijvingen_uit():
                     "al automatisch afgehandeld.",
                     onderwerp="scheduler",
                 )
+                continue
 
+            # Testmodus: geen echte inschrijving uitvoeren.
+            if testmodus:
+                schrijf_log(
+                    f"{section}: TESTMODUS — zou inschrijven "
+                    f"voor {datum} "
+                    f"{tijd.strftime('%H:%M')} "
+                    f"({les}), indien registratie open is.",
+                    onderwerp="scheduler",
+                )
                 continue
 
             schrijf_log(
@@ -1762,7 +1865,6 @@ def voer_automatische_inschrijvingen_uit():
             )
 
             if resultaat:
-
                 markeer_afgehandeld(
                     section,
                     datum,
@@ -1775,9 +1877,7 @@ def voer_automatische_inschrijvingen_uit():
                     "en gemarkeerd als afgehandeld.",
                     onderwerp="scheduler",
                 )
-
             else:
-
                 schrijf_log(
                     f"{section}: niet uitgevoerd "
                     "(momenteel niet open); "
@@ -1786,7 +1886,6 @@ def voer_automatische_inschrijvingen_uit():
                 )
 
         except Exception as error:
-
             schrijf_log(
                 f"{section}: fout tijdens "
                 f"automatische inschrijving: "
@@ -1804,9 +1903,7 @@ def scheduler_loop():
     vorige_instellingen = None
 
     while True:
-
         try:
-
             (
                 enabled,
                 ingestelde_tijd,
@@ -1819,11 +1916,7 @@ def scheduler_loop():
                 timezone_naam,
             )
 
-            if (
-                actuele_instellingen
-                != vorige_instellingen
-            ):
-
+            if actuele_instellingen != vorige_instellingen:
                 schrijf_log(
                     "Scheduler-instellingen: "
                     f"enabled={enabled}, "
@@ -1831,99 +1924,112 @@ def scheduler_loop():
                     f"timezone={timezone_naam}",
                     onderwerp="scheduler",
                 )
-
-                vorige_instellingen = (
-                    actuele_instellingen
-                )
-
-            if not enabled:
-
-                time.sleep(
-                    10
-                )
-
-                continue
+                vorige_instellingen = actuele_instellingen
 
             try:
-
-                timezone = ZoneInfo(
-                    timezone_naam
-                )
-
-            except Exception:
+                timezone = ZoneInfo(timezone_naam)
+                tijd = parse_tijd(ingestelde_tijd)
+            except Exception as error:
+                with _scheduler_status_lock:
+                    _scheduler_status["actief"] = False
+                    _scheduler_status["fout"] = str(error)
+                    _scheduler_status["volgende_run"] = None
 
                 schrijf_log(
-                    f"Ongeldige scheduler-timezone: "
-                    f"{timezone_naam}",
+                    f"Ongeldige scheduler-instellingen: {error}",
                     onderwerp="scheduler",
                     niveau="error",
                 )
-
-                time.sleep(
-                    60
-                )
-
+                time.sleep(30)
                 continue
 
-            nu = datetime.now(
-                timezone
+            nu = datetime.now(timezone)
+
+            volgende = nu.replace(
+                hour=tijd.hour,
+                minute=tijd.minute,
+                second=0,
+                microsecond=0,
             )
 
-            huidige_tijd = (
-                nu.strftime("%H:%M")
-            )
+            if volgende <= nu:
+                volgende += timedelta(days=1)
 
-            huidige_datum = (
-                nu.date()
-            )
+            with _scheduler_status_lock:
+                _scheduler_status["actief"] = bool(enabled)
+                _scheduler_status["volgende_run"] = (
+                    volgende if enabled else None
+                )
+                _scheduler_status["fout"] = None
+
+            if not enabled:
+                time.sleep(10)
+                continue
+
+            huidige_datum = nu.date()
+            huidige_tijd = nu.strftime("%H:%M")
 
             if (
-                huidige_tijd
-                == ingestelde_tijd
-                and _scheduler_last_run
-                != huidige_datum
+                huidige_tijd == ingestelde_tijd
+                and _scheduler_last_run != huidige_datum
             ):
-
                 with _scheduler_lock:
+                    if _scheduler_last_run != huidige_datum:
+                        starttijd = datetime.now(timezone)
 
-                    if (
-                        _scheduler_last_run
-                        != huidige_datum
-                    ):
+                        with _scheduler_status_lock:
+                            _scheduler_status["laatste_run"] = starttijd
+                            _scheduler_status["volgende_run"] = (
+                                starttijd.replace(
+                                    hour=tijd.hour,
+                                    minute=tijd.minute,
+                                    second=0,
+                                    microsecond=0,
+                                ) + timedelta(days=1)
+                            )
 
                         schrijf_log(
                             "Scheduler gestart om "
-                            f"{nu.strftime('%Y-%m-%d %H:%M:%S %Z')}",
+                            f"{starttijd.strftime('%Y-%m-%d %H:%M:%S %Z')}",
                             onderwerp="scheduler",
                         )
 
-                        try:
+                        with _scheduler_status_lock:
+                            _scheduler_status["laatste_run"] = starttijd
+                            _scheduler_status["laatste_resultaat"] = "Bezig..."
+                            _scheduler_status["fout"] = None
 
-                            (
-                                voer_automatische_inschrijvingen_uit()
+                        try:
+                            voer_automatische_inschrijvingen_uit()
+
+                            with _scheduler_status_lock:
+                                _scheduler_status["laatste_resultaat"] = "Controle afgerond"
+
+                        except Exception as error:
+                            with _scheduler_status_lock:
+                                _scheduler_status["laatste_resultaat"] = "Mislukt"
+                                _scheduler_status["fout"] = str(error)
+
+                            schrijf_log(
+                                f"Schedulercontrole mislukt: {error}",
+                                "exception",
                             )
 
                         finally:
+                            _scheduler_last_run = huidige_datum
 
-                            _scheduler_last_run = (
-                                huidige_datum
-                            )
-
-            time.sleep(
-                10
-            )
+            time.sleep(10)
 
         except Exception as error:
+            with _scheduler_status_lock:
+                _scheduler_status["fout"] = str(error)
 
             schrijf_log(
                 f"Fout in scheduler: {error}",
                 onderwerp="scheduler",
                 niveau="error",
             )
-
-            time.sleep(
-                30
-            )
+            time.sleep(30)
 
 
 def start_ingebouwde_scheduler():

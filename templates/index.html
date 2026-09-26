@@ -7,6 +7,85 @@
     <p>Automatisch ingeschreven lessen</p>
 </div>
 
+<section class="card scheduler-card">
+    <div class="scheduler-card-header">
+        <h2>Status</h2>
+        <div class="scheduler-status-items">
+          <span class="status status-{{ 'actief' if scheduler_status.actief else 'uitgeschakeld' }}">
+              {{ 'Actief' if scheduler_status.actief else 'Uitgeschakeld' }}
+          </span>
+        </div>
+    </div>
+
+    <div class="scheduler-details">
+        <div>
+            <span class="scheduler-label"></span>
+            <strong>
+        <form
+            method="post"
+            action="{{ url_for('scheduler_nu_uitvoeren') }}"
+        >
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token() }}"
+            >
+
+            <button
+                type="submit"
+                class="button button-testmail"
+            >
+                Nu controleren
+            </button>
+        </form>
+            </strong>
+        </div>
+
+        <div>
+            <span class="scheduler-label">Volgende controle</span>
+            <strong>
+                {% if scheduler_status.volgende_run %}
+                    {{ scheduler_status.volgende_run.strftime('%d-%m-%Y om %H:%M') }}
+                {% else %}
+                    —-
+                {% endif %}
+            </strong>
+        </div>
+
+        <div>
+            <span class="scheduler-label">Laatste controle</span>
+            <strong>
+                {% if scheduler_status.laatste_run %}
+                    {{ scheduler_status.laatste_run.strftime('%d-%m-%Y om %H:%M') }}
+                {% else %}
+                    --
+                {% endif %}
+            </strong>
+        </div>
+
+        <div>
+            <span class="scheduler-label">
+                Resultaat
+            </span>
+            <strong>
+                {% if scheduler_status.laatste_resultaat %}
+                    {{ scheduler_status.laatste_resultaat }}
+                {% else %}
+                    --
+                {% endif %}
+            </strong>
+        </div>
+
+    </div>
+
+    {% if scheduler_status.fout %}
+        <p class="scheduler-error">
+            Fout: {{ scheduler_status.fout }}
+        </p>
+    {% endif %}
+</section>
+
+
 {% if inschrijvingen %}
 
 <div class="cards">
@@ -48,10 +127,6 @@
              ==================================================== -->
 
         <div class="next-lessons">
-
-            <div class="status-label">
-                Eerstvolgende 2 lessen
-            </div>
 
             {% for les in item.lessen %}
 
@@ -290,5 +365,45 @@
 </section>
 
 {% endif %}
+
+<!-- ============================================================
+     MOBIELE ACTIES
+     ============================================================ -->
+
+<section class="card settings-mobile-actions">
+    <div class="settings-testmail-content">
+
+        <div class="settings-mobile-buttons">
+
+            <a
+                href="{{ url_for('log') }}"
+                class="button button-testmail"
+            >
+                Log
+            </a>
+
+            <form
+                method="post"
+                action="{{ url_for('logout') }}"
+                class="settings-logout-form"
+            >
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="{{ csrf_token() }}"
+                >
+
+                <button
+                    type="submit"
+                    class="button button-danger"
+                >
+                    Uitloggen
+                </button>
+            </form>
+
+        </div>
+
+    </div>
+</section>
 
 {% endblock %}

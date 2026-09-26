@@ -496,51 +496,14 @@
 </form>
 
 <!-- ============================================================
-     SCHEDULER DIRECT UITVOEREN
+     TEST MAIL
      ============================================================ -->
 
 <section class="card settings-testmail">
     <div class="settings-testmail-content">
 
         <div>
-            <h2>Scheduler</h2>
-
-            <p>
-                Controleer de automatische scheduler direct
-                zonder te wachten op het ingestelde tijdstip.
-            </p>
-        </div>
-
-        <form
-            method="post"
-            action="{{ url_for('scheduler_nu_uitvoeren') }}"
-        >
-            <input
-                type="hidden"
-                name="csrf_token"
-                value="{{ csrf_token() }}"
-            >
-
-            <button
-                type="submit"
-                class="button button-testmail"
-            >
-                Scheduler nu uitvoeren
-            </button>
-        </form>
-
-    </div>
-</section>
-
-<!-- ============================================================
-     TESTMAIL
-     ============================================================ -->
-
-<section class="card settings-testmail">
-    <div class="settings-testmail-content">
-
-        <div>
-            <h2>Testmail</h2>
+            <h2>Test mail</h2>
 
             <p>
                 Controleer of de huidige SMTP-instellingen
@@ -599,49 +562,9 @@
                 type="submit"
                 class="button button-testmail"
             >
-                Test ntfy versturen
+                Testnotificatie versturen
             </button>
         </form>
-
-    </div>
-</section>
-
-<!-- ============================================================
-     MOBIELE ACTIES
-     ============================================================ -->
-
-<section class="card settings-mobile-actions">
-    <div class="settings-testmail-content">
-
-        <div class="settings-mobile-buttons">
-
-            <a
-                href="{{ url_for('log') }}"
-                class="button button-testmail"
-            >
-                Log
-            </a>
-
-            <form
-                method="post"
-                action="{{ url_for('logout') }}"
-                class="settings-logout-form"
-            >
-                <input
-                    type="hidden"
-                    name="csrf_token"
-                    value="{{ csrf_token() }}"
-                >
-
-                <button
-                    type="submit"
-                    class="button button-danger"
-                >
-                    Uitloggen
-                </button>
-            </form>
-
-        </div>
 
     </div>
 </section>

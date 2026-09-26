@@ -81,10 +81,14 @@ select {
     right: 0;
     z-index: 1000;
 
-    background: #050505;
+    background: rgba(8, 8, 8, .70);
+
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+
+    /*background: #050505;*/
     border-bottom: 1px solid rgba(255, 255, 255, .08);
 
-/*    border-bottom: 1px solid var(--green);*/
     box-shadow: 0 5px 25px rgba(0, 0, 0, .45);
 }
 
@@ -709,16 +713,6 @@ select {
     border: 1px solid var(--border);
 }
 
-.status-label {
-    color: var(--gray);
-
-    font-size: 10px;
-    font-weight: 900;
-
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-}
-
 .checked {
     margin-top: 6px;
 
@@ -884,6 +878,93 @@ select {
 .actions form {
     margin: 0;
 }
+
+
+/* ============================================================
+   SCHEDULER STATUS CARD
+   ============================================================ */
+
+.scheduler-card {
+    border: 2px dashed var(--gray);
+    border-left: 5px solid;
+    margin-bottom: 36px;
+
+    background:
+        linear-gradient(
+            135deg,
+            color-mix(
+                in srgb,
+                #fff 4%,
+                var(--black)
+            ),
+            var(--black)
+        );
+}
+
+.scheduler-card-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.scheduler-card-header h2 {
+    margin: 0;
+    flex: 0 0 auto;
+}
+
+.scheduler-status-items {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.scheduler-details {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    color: var(--gray);
+}
+
+.scheduler-details > div {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.scheduler-label {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.scheduler-error {
+    color: var(--danger);
+    margin: 12px 0 0;
+    overflow-wrap: anywhere;
+}
+
+.status-actief {
+    color: var(--success);
+    background: rgba(34, 197, 94, .08);
+    border-color: rgba(34, 197, 94, .35);
+}
+
+.status-uitgeschakeld {
+    color: var(--warning);
+    background: rgba(240, 180, 41, .08);
+    border-color: rgba(240, 180, 41, .35);
+}
+
+@media (max-width: 480px) {
+    .scheduler-details {
+        grid-template-columns: 1fr;
+    }
+}
+
 
 
 /* ============================================================
@@ -1355,6 +1436,16 @@ form select option {
     gap: 10px;
 }
 
+.settings-mobile-buttons > a,
+.settings-mobile-buttons > form {
+    flex: 1;
+    min-width: 0;
+}
+
+.settings-mobile-buttons > form button {
+    width: 100%;
+}
+
 
 /* ============================================================
    MOBILE
@@ -1518,12 +1609,12 @@ form select option {
         align-items: center;
         justify-content: space-around;
 
-        background: rgba(8, 8, 8, .96);
+        background: rgba(8, 8, 8, .70);
 
         border-top: 1px solid rgba(255, 255, 255, .08);
 
-        backdrop-filter: blur(14px);
-        -webkit-backdrop-filter: blur(14px);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
     }
 
     .bottom-nav-item {

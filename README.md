@@ -6,6 +6,8 @@ De applicatie is bedoeld om op een kleine server, Raspberry Pi, NAS of andere Li
 
 ![Screenshot van de SportBit webapp](screenshot.png)
 
+![Screenshot van de SportBit webapp nieuwe inschrijving](screenshot_new_lesson.png)
+
 ---
 
 ## Functies

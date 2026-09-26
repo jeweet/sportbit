@@ -678,6 +678,12 @@ select {
     border-color: rgba(239, 68, 68, .35);
 }
 
+.status-uitgeschreven {
+    color: #2563eb;
+    background: rgba(59, 130, 246, .08);
+    border-color: rgba(59, 130, 246, .35);
+}
+
 .status-onbekend {
     color: var(--gray-2);
     background: rgba(255, 255, 255, .03);

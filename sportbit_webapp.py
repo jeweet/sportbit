@@ -700,6 +700,22 @@ def index():
             )
         )
 
+        doel_tijd = parse_tijd(item["tijd"])
+        doel_les = item["les"]
+
+        for les in item["lessen"]:
+            if is_handmatig_overgeslagen(
+                item["naam"],
+                les["datum"].date(),
+                doel_les,
+                doel_tijd,
+            ):
+                les["status"] = {
+                    "code": "uitgeschreven",
+                    "css": "uitgeschreven",
+                    "text": "Handmatig uitgeschreven",
+                }
+
         actuele_status = (
             get_status(
                 item["naam"]

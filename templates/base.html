@@ -1,197 +1,282 @@
-<!doctype html> <html lang="nl"> <head> <meta charset="utf-8">
-<meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
->
+<!doctype html>
+<html lang="nl">
 
-<meta name="theme-color" content="#080808">
+<head>
 
-<link
-    rel="manifest"
-    href="{{ url_for('static', filename='manifest.json') }}"
->
+    <meta charset="utf-8">
 
-<link
-    rel="icon"
-    type="image/svg+xml"
-    href="{{ url_for('static', filename='images/icon.svg') }}"
->
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1, viewport-fit=cover"
+    >
 
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta
-    name="apple-mobile-web-app-status-bar-style"
-    content="black"
->
-<meta name="apple-mobile-web-app-title" content="SportBit">
+    <meta
+        name="theme-color"
+        content="#080808"
+    >
 
-<title>SportBit · Go Personal</title>
+    <meta
+        name="mobile-web-app-capable"
+        content="yes"
+    >
 
-<link
-    rel="stylesheet"
-    href="{{ url_for('static', filename='css/sportbit.css') }}"
->
+    <meta
+        name="apple-mobile-web-app-capable"
+        content="yes"
+    >
 
-</head> <body class="{% if request.endpoint == 'login' %}login-body{% endif %}">
-{% if request.endpoint != "login" %}
+    <meta
+        name="apple-mobile-web-app-status-bar-style"
+        content="black"
+    >
 
-    <header class="header">
-        <div class="header-inner">
+    <meta
+        name="apple-mobile-web-app-title"
+        content="SportBit"
+    >
 
-            <a
-                href="{{ url_for('index') }}"
-                class="logo-link"
-                aria-label="SportBit"
-            >
-                <img
-                    class="logo"
-                    src="{{ url_for('static', filename='images/logo.svg') }}"
-                    alt="SportBit"
+    <!-- ========================================================
+         PWA
+         ======================================================== -->
+
+    <link
+        rel="manifest"
+        href="{{ url_for('static', filename='manifest.json') }}"
+    >
+
+    <link
+        rel="icon"
+        type="image/svg+xml"
+        href="{{ url_for('static', filename='images/icon.svg') }}"
+    >
+
+    <!-- ========================================================
+         STYLESHEET
+         ======================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/sportbit.css') }}"
+    >
+
+    <title>SportBit · Go Personal</title>
+
+</head>
+
+<body class="{% if request.endpoint == 'login' %}login-body{% endif %}">
+
+    {% if request.endpoint != "login" %}
+
+        <!-- ====================================================
+             HEADER
+             ==================================================== -->
+
+        <header class="header">
+
+            <div class="header-inner">
+
+                <a
+                    href="{{ url_for('index') }}"
+                    class="logo-link"
+                    aria-label="SportBit"
                 >
-            </a>
+                    <img
+                        class="logo"
+                        src="{{ url_for('static', filename='images/logo.svg') }}"
+                        alt="SportBit"
+                    >
+                </a>
 
-            <div class="header-title">
-                Automatische inschrijving
+                <div class="header-title">
+                    Automatische inschrijving
+                </div>
+
+                <button
+                    type="button"
+                    class="menu-toggle"
+                    id="menuToggle"
+                    aria-label="Menu openen"
+                    aria-expanded="false"
+                    aria-controls="mobileMenu"
+                >
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+
             </div>
 
-            <button
-                type="button"
-                class="menu-toggle"
-                id="menuToggle"
-                aria-label="Menu openen"
-                aria-expanded="false"
-                aria-controls="mobileMenu"
-            >
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
+            <!-- ================================================
+                 MOBIEL MENU
+                 ================================================ -->
 
-        </div>
+            <nav
+                class="mobile-menu"
+                id="mobileMenu"
+                aria-hidden="true"
+            >
+
+                <a
+                    href="{{ url_for('nieuwe_inschrijving') }}"
+                    class="mobile-menu-item mobile-menu-primary"
+                >
+                    <span class="mobile-menu-icon">+</span>
+                    <span>Toevoegen</span>
+                </a>
+
+                <a
+                    href="{{ url_for('index') }}"
+                    class="mobile-menu-item"
+                >
+                    <span class="mobile-menu-icon">≡</span>
+                    <span>Overzicht</span>
+                </a>
+
+                <a
+                    href="{{ url_for('instellingen') }}"
+                    class="mobile-menu-item"
+                >
+                    <span class="mobile-menu-icon">⚙</span>
+                    <span>Instellingen</span>
+                </a>
+
+                <a
+                    href="{{ url_for('documentatie') }}"
+                    class="mobile-menu-item"
+                >
+                    <span class="mobile-menu-icon">?</span>
+                    <span>Uitleg</span>
+                </a>
+
+                <a
+                    href="{{ url_for('log') }}"
+                    class="mobile-menu-item"
+                >
+                    <span class="mobile-menu-icon">≡</span>
+                    <span>Log</span>
+                </a>
+
+                <form
+                    method="post"
+                    action="{{ url_for('logout') }}"
+                    class="mobile-menu-logout-form"
+                >
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{ csrf_token() }}"
+                    >
+
+                    <button
+                        type="submit"
+                        class="mobile-menu-item mobile-menu-logout"
+                    >
+                        <span class="mobile-menu-icon">↪</span>
+                        <span>Uitloggen</span>
+                    </button>
+                </form>
+
+            </nav>
+
+        </header>
+
+        <!-- ====================================================
+             BOTTOM NAVIGATIE
+             ==================================================== -->
 
         <nav
-            class="mobile-menu"
-            id="mobileMenu"
-            aria-hidden="true"
+            class="bottom-nav"
+            aria-label="Hoofdnavigatie"
         >
-            <a
-                href="{{ url_for('nieuwe_inschrijving') }}"
-                class="mobile-menu-item mobile-menu-primary"
-            >
-                <span class="mobile-menu-icon">+</span>
-                <span>Toevoegen</span>
-            </a>
 
             <a
                 href="{{ url_for('index') }}"
-                class="mobile-menu-item"
+                class="bottom-nav-item {% if request.endpoint == 'index' %}active{% endif %}"
             >
-                <span class="mobile-menu-icon">≡</span>
+                <span class="bottom-nav-icon">⌂</span>
                 <span>Overzicht</span>
             </a>
 
             <a
-                href="{{ url_for('instellingen') }}"
-                class="mobile-menu-item"
+                href="{{ url_for('nieuwe_inschrijving') }}"
+                class="bottom-nav-item bottom-nav-add"
             >
-                <span class="mobile-menu-icon">⚙</span>
+                <span class="bottom-nav-add-icon">+</span>
+                <span>Toevoegen</span>
+            </a>
+
+            <a
+                href="{{ url_for('instellingen') }}"
+                class="bottom-nav-item {% if request.endpoint == 'instellingen' %}active{% endif %}"
+            >
+                <span class="bottom-nav-icon">⚙</span>
                 <span>Instellingen</span>
             </a>
 
-            <a
-                href="{{ url_for('documentatie') }}"
-                class="mobile-menu-item"
-            >
-                <span class="mobile-menu-icon">?</span>
-                <span>Uitleg</span>
-            </a>
-
-            <a
-                href="{{ url_for('log') }}"
-                class="mobile-menu-item"
-            >
-                <span class="mobile-menu-icon">≡</span>
-                <span>Log</span>
-            </a>
-
-            <form
-                method="post"
-                action="{{ url_for('logout') }}"
-                class="mobile-menu-logout-form"
-            >
-                <input
-                    type="hidden"
-                    name="csrf_token"
-                    value="{{ csrf_token() }}"
-                >
-
-                <button
-                    type="submit"
-                    class="mobile-menu-item mobile-menu-logout"
-                >
-                    <span class="mobile-menu-icon">↪</span>
-                    <span>Uitloggen</span>
-                </button>
-            </form>
         </nav>
-    </header>
 
-    <nav class="bottom-nav" aria-label="Hoofdnavigatie">
-        <a
-            href="{{ url_for('index') }}"
-            class="bottom-nav-item {% if request.endpoint == 'index' %}active{% endif %}"
-        >
-            <span class="bottom-nav-icon">⌂</span>
-            <span>Overzicht</span>
-        </a>
-
-        <a
-            href="{{ url_for('nieuwe_inschrijving') }}"
-            class="bottom-nav-item bottom-nav-add"
-        >
-            <span class="bottom-nav-add-icon">+</span>
-            <span>Toevoegen</span>
-        </a>
-
-        <a
-            href="{{ url_for('instellingen') }}"
-            class="bottom-nav-item {% if request.endpoint == 'instellingen' %}active{% endif %}"
-        >
-            <span class="bottom-nav-icon">⚙</span>
-            <span>Instellingen</span>
-        </a>
-    </nav>
-
-{% endif %}
-
-<main class="container">
-
-    {% if not login_ingesteld and request.endpoint != "login" %}
-        <div class="alert alert-error">
-            ⚠ Geen login ingesteld: deze app is momenteel voor
-            iedereen op het netwerk bereikbaar, inclusief deze
-            Instellingen-pagina. Stel een gebruikersnaam en
-            wachtwoord in via
-            <a href="{{ url_for('instellingen') }}">Instellingen</a>.
-        </div>
     {% endif %}
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">
-                    {{ message }}
-                </div>
-            {% endfor %}
+    <!-- ========================================================
+         MAIN CONTENT
+         ======================================================== -->
+
+    <main class="container">
+
+        <!-- ====================================================
+             LOGIN WAARSCHUWING
+             ==================================================== -->
+
+        {% if not login_ingesteld and request.endpoint != "login" %}
+
+            <div class="alert alert-error">
+
+                ⚠ Geen login ingesteld: deze app is momenteel voor
+                iedereen op het netwerk bereikbaar, inclusief deze
+                Instellingen-pagina. Stel een gebruikersnaam en
+                wachtwoord in via
+                <a href="{{ url_for('instellingen') }}">Instellingen</a>.
+
+            </div>
+
         {% endif %}
-    {% endwith %}
 
-    {% block content %}{% endblock %}
+        <!-- ====================================================
+             FLASH MESSAGES
+             ==================================================== -->
 
-</main>
+        {% with messages = get_flashed_messages(with_categories=true) %}
 
-<script
-    src="{{ url_for('static', filename='js/sportbit.js') }}"
-></script>
+            {% if messages %}
 
-</body> </html>
+                {% for category, message in messages %}
+
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                    </div>
+
+                {% endfor %}
+
+            {% endif %}
+
+        {% endwith %}
+
+        <!-- ====================================================
+             PAGINA CONTENT
+             ==================================================== -->
+
+        {% block content %}{% endblock %}
+
+    </main>
+
+    <!-- ========================================================
+         JAVASCRIPT
+         ======================================================== -->
+
+    <script
+        src="{{ url_for('static', filename='js/sportbit.js') }}"
+    ></script>
+
+</body>
+
+</html>

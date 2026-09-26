@@ -5,13 +5,12 @@
 import os
 import secrets
 import importlib
-import logging
 import threading
 import time
-from logging.handlers import RotatingFileHandler
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from notify import send_test_ntfy
 
 from dotenv import dotenv_values, load_dotenv
 from flask import (
@@ -26,6 +25,8 @@ from flask import (
     url_for,
 )
 
+from sportbit_logging import schrijf_log
+
 
 # ============================================================
 # PADEN / OMGEVING
@@ -34,6 +35,7 @@ from flask import (
 BASE_DIR = Path(__file__).resolve().parent
 
 ENV_FILE = BASE_DIR / ".env"
+
 SECRET_KEY_FILE = BASE_DIR / ".flask_secret_key"
 
 LOG_DIR = BASE_DIR / "logs"
@@ -43,52 +45,40 @@ load_dotenv(ENV_FILE)
 
 
 # ============================================================
-# LOGGING
+# INSTELLINGEN / .ENV
 # ============================================================
 
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-_logger = logging.getLogger("sportbit")
-_logger.setLevel(logging.INFO)
-_logger.propagate = False
-
-if not _logger.handlers:
-    _file_handler = RotatingFileHandler(
-        LOG_FILE,
-        maxBytes=1_000_000,
-        backupCount=5,
-        encoding="utf-8",
-    )
-
-    _file_handler.setFormatter(
-        logging.Formatter(
-            "[%(asctime)s] %(levelname)s %(message)s"
-        )
-    )
-
-    _logger.addHandler(_file_handler)
-
-    _console_handler = logging.StreamHandler()
-
-    _console_handler.setFormatter(
-        logging.Formatter(
-            "[%(asctime)s] %(levelname)s %(message)s"
-        )
-    )
-
-    _logger.addHandler(_console_handler)
+ENV_SETTINGS = (
+    "SPORTBIT_USERNAME",
+    "SPORTBIT_PASSWORD",
+    "NOTIFY_ENABLED",
+    "NOTIFY_EMAIL_TO",
+    "NOTIFY_SUCCESS_ENABLED",
+    "NTFY_ENABLED",
+    "NTFY_URL",
+    "NTFY_TOPIC",
+    "NTFY_TOKEN",
+    "NTFY_NOTIFY_SUCCESS",
+    "SMTP_HOST",
+    "SMTP_PORT",
+    "SMTP_USERNAME",
+    "SMTP_PASSWORD",
+    "SMTP_USE_TLS",
+    "NOTIFY_FROM",
+    "WEB_USERNAME",
+    "WEB_PASSWORD",
+    "SPORTBIT_SCHEDULER_ENABLED",
+    "SPORTBIT_SCHEDULER_TIME",
+    "SPORTBIT_SCHEDULER_TIMEZONE",
+)
 
 
-def schrijf_log(bericht, niveau="info"):
-    """Schrijf een bericht naar het permanente SportBit-logbestand."""
-
-    logfunctie = getattr(
-        _logger,
-        niveau,
-        _logger.info,
-    )
-
-    logfunctie(str(bericht))
+SENSITIVE_ENV_SETTINGS = {
+    "SPORTBIT_PASSWORD",
+    "SMTP_PASSWORD",
+    "WEB_PASSWORD",
+    "NTFY_TOKEN",
+}
 
 
 def get_of_maak_secret_key():
@@ -119,7 +109,7 @@ def get_of_maak_secret_key():
 
     tijdelijke_file.write_text(
         nieuwe_sleutel,
-        encoding="utf-8"
+        encoding="utf-8",
     )
 
     tijdelijke_file.replace(
@@ -134,44 +124,14 @@ def get_of_maak_secret_key():
     except OSError:
         pass
 
-    print(
-        "Geen FLASK_SECRET_KEY ingesteld in .env: "
-        "nieuwe willekeurige sleutel gegenereerd en "
-        f"opgeslagen in {SECRET_KEY_FILE.name}. "
-        "Zet bij voorkeur zelf een vaste FLASK_SECRET_KEY in .env."
+    schrijf_log(
+        "Geen FLASK_SECRET_KEY ingesteld: "
+        f"nieuwe sleutel opgeslagen in {SECRET_KEY_FILE.name}.",
+        onderwerp="app",
+        niveau="warning",
     )
 
     return nieuwe_sleutel
-
-
-# ============================================================
-# INSTELLINGEN / .ENV
-# ============================================================
-
-ENV_SETTINGS = (
-    "SPORTBIT_USERNAME",
-    "SPORTBIT_PASSWORD",
-    "NOTIFY_ENABLED",
-    "NOTIFY_EMAIL_TO",
-    "SMTP_HOST",
-    "SMTP_PORT",
-    "SMTP_USERNAME",
-    "SMTP_PASSWORD",
-    "SMTP_USE_TLS",
-    "NOTIFY_FROM",
-    "WEB_USERNAME",
-    "WEB_PASSWORD",
-    "SPORTBIT_SCHEDULER_ENABLED",
-    "SPORTBIT_SCHEDULER_TIME",
-    "SPORTBIT_SCHEDULER_TIMEZONE",
-)
-
-
-SENSITIVE_ENV_SETTINGS = {
-    "SPORTBIT_PASSWORD",
-    "SMTP_PASSWORD",
-    "WEB_PASSWORD",
-}
 
 
 def lees_instellingen():
@@ -220,32 +180,6 @@ def sla_instellingen_op():
         ENV_FILE
     )
 
-    # Bewaar de huidige schedulerinstellingen voordat
-    # eventuele wijzigingen worden toegepast.
-    oude_scheduler_instellingen = (
-        str(
-            waarden.get(
-                "SPORTBIT_SCHEDULER_ENABLED",
-                "",
-            )
-            or ""
-        ).strip().lower(),
-        str(
-            waarden.get(
-                "SPORTBIT_SCHEDULER_TIME",
-                "",
-            )
-            or ""
-        ).strip(),
-        str(
-            waarden.get(
-                "SPORTBIT_SCHEDULER_TIMEZONE",
-                "",
-            )
-            or ""
-        ).strip(),
-    )
-
     for naam in ENV_SETTINGS:
 
         if naam not in request.form:
@@ -256,6 +190,8 @@ def sla_instellingen_op():
             "",
         ).strip()
 
+        # Bestaand wachtwoord behouden
+        # wanneer het wachtwoordveld leeg blijft.
         if (
             naam in SENSITIVE_ENV_SETTINGS
             and not waarde
@@ -268,14 +204,47 @@ def sla_instellingen_op():
                 "true",
                 "false",
             }:
+
                 raise ValueError(
-                    "Scheduler moet Ingeschakeld of Uitgeschakeld zijn."
+                    "Scheduler moet Ingeschakeld of "
+                    "Uitgeschakeld zijn."
+                )
+
+        if naam == "NTFY_ENABLED":
+
+            if waarde not in {
+                "true",
+                "false",
+            }:
+
+                raise ValueError(
+                    "ntfy moet Ingeschakeld of "
+                    "Uitgeschakeld zijn."
+                )
+
+        if naam in {
+            "NTFY_ENABLED",
+            "NOTIFY_SUCCESS_ENABLED",
+            "NTFY_NOTIFY_SUCCESS",
+        }:
+
+            if waarde not in {
+                "true",
+                "false",
+            }:
+
+                raise ValueError(
+                    f"{naam} moet Ingeschakeld of "
+                    "Uitgeschakeld zijn."
                 )
 
         if naam == "SPORTBIT_SCHEDULER_TIME":
 
             try:
-                parse_tijd(waarde)
+
+                parse_tijd(
+                    waarde
+                )
 
             except ValueError:
 
@@ -298,6 +267,7 @@ def sla_instellingen_op():
 
         waarden[naam] = waarde
 
+    # Zorg dat alle bekende variabelen aanwezig blijven.
     for naam in ENV_SETTINGS:
 
         if naam not in waarden:
@@ -319,8 +289,10 @@ def sla_instellingen_op():
             f"{naam}={waarde}"
         )
 
-    tijdelijke_file = ENV_FILE.with_suffix(
-        ".tmp"
+    tijdelijke_file = (
+        ENV_FILE.with_suffix(
+            ".tmp"
+        )
     )
 
     tijdelijke_file.write_text(
@@ -348,45 +320,9 @@ def sla_instellingen_op():
         notify
     )
 
-    app.secret_key = get_of_maak_secret_key()
-
-    # Lees de nieuwe schedulerinstellingen opnieuw uit de .env.
-    nieuwe_waarden = dotenv_values(
-        ENV_FILE
+    app.secret_key = (
+        get_of_maak_secret_key()
     )
-
-    nieuwe_scheduler_instellingen = (
-        str(
-            nieuwe_waarden.get(
-                "SPORTBIT_SCHEDULER_ENABLED",
-                "",
-            )
-            or ""
-        ).strip().lower(),
-        str(
-            nieuwe_waarden.get(
-                "SPORTBIT_SCHEDULER_TIME",
-                "",
-            )
-            or ""
-        ).strip(),
-        str(
-            nieuwe_waarden.get(
-                "SPORTBIT_SCHEDULER_TIMEZONE",
-                "",
-            )
-            or ""
-        ).strip(),
-    )
-
-    # Alleen resetten als een schedulerinstelling
-    # daadwerkelijk gewijzigd is.
-    if (
-        oude_scheduler_instellingen
-        != nieuwe_scheduler_instellingen
-    ):
-
-        reset_scheduler_trigger()
 
 
 # ============================================================
@@ -405,7 +341,6 @@ from sportbit_dates import (
     DAGEN,
     parse_tijd,
     volgende_datum,
-    inschrijving_open,
 )
 
 from sportbit_events import (
@@ -446,7 +381,9 @@ app = Flask(
     static_folder="static",
 )
 
-app.secret_key = get_of_maak_secret_key()
+app.secret_key = (
+    get_of_maak_secret_key()
+)
 
 
 # ------------------------------------------------------------
@@ -478,70 +415,24 @@ app.config.update(
 # ============================================================
 
 @app.after_request
-def log_webrequest_fout(response):
-    """Log alleen HTTP-fouten; normale requests blijven stil."""
+def log_webrequest_fout(
+    response
+):
+    """Log alleen HTTP-fouten."""
 
     if response.status_code >= 400:
 
         schrijf_log(
-            f"WEB FOUT {request.method} "
-            f"{request.path}"
-            f" endpoint={request.endpoint or '-'}"
-            f" status={response.status_code}"
-            f" ip={request.remote_addr or '-'}",
-            "error",
+            f"FOUT {request.method} "
+            f"{request.path} "
+            f"endpoint={request.endpoint or '-'} "
+            f"status={response.status_code} "
+            f"ip={request.remote_addr or '-'}",
+            onderwerp="web",
+            niveau="error",
         )
 
     return response
-
-
-class LogStdout:
-    """Stuur bestaande print()-uitvoer naar het logbestand."""
-
-    def __init__(self, origineel):
-        self.origineel = origineel
-
-    def write(self, tekst):
-
-        tekst = str(tekst)
-
-        if not tekst.strip():
-            return len(tekst)
-
-        regel = tekst.rstrip()
-
-        if regel.startswith(
-            (
-                "[INSCHRIJVING]",
-                "[UITSCHRIJVING]",
-                "[STATUS]",
-                "[SKIP]",
-                "[NOTIFICATIE]",
-            )
-        ):
-            schrijf_log(regel)
-
-        else:
-            schrijf_log(
-                f"STDOUT {regel}"
-            )
-
-        return len(tekst)
-
-    def flush(self):
-
-        try:
-            self.origineel.flush()
-
-        except Exception:
-            pass
-
-
-import sys
-
-sys.stdout = LogStdout(
-    sys.stdout
-)
 
 
 # ============================================================
@@ -579,7 +470,9 @@ def login_ingesteld():
 def inject_login_status():
 
     return {
-        "login_ingesteld": login_ingesteld(),
+        "login_ingesteld": (
+            login_ingesteld()
+        ),
     }
 
 
@@ -590,6 +483,7 @@ def controleer_login():
         "login",
         "static",
     }:
+
         return
 
     if not login_ingesteld():
@@ -598,6 +492,7 @@ def controleer_login():
     if session.get(
         "web_logged_in"
     ):
+
         return
 
     return redirect(
@@ -621,7 +516,9 @@ def csrf_token():
             16
         )
 
-        session["csrf_token"] = token
+        session[
+            "csrf_token"
+        ] = token
 
     return token
 
@@ -643,6 +540,7 @@ def controleer_csrf():
         "PATCH",
         "DELETE",
     }:
+
         return
 
     if request.endpoint == "static":
@@ -652,9 +550,11 @@ def controleer_csrf():
         "csrf_token"
     )
 
-    ontvangen_token = request.form.get(
-        "csrf_token",
-        "",
+    ontvangen_token = (
+        request.form.get(
+            "csrf_token",
+            "",
+        )
     )
 
     if (
@@ -669,8 +569,10 @@ def controleer_csrf():
         abort(
             400,
             description=(
-                "Ongeldige of verlopen beveiligingstoken. "
-                "Herlaad de pagina en probeer het opnieuw."
+                "Ongeldige of verlopen "
+                "beveiligingstoken. "
+                "Herlaad de pagina en "
+                "probeer het opnieuw."
             ),
         )
 
@@ -681,16 +583,22 @@ def controleer_csrf():
 
 @app.route(
     "/login",
-    methods=["GET", "POST"],
+    methods=[
+        "GET",
+        "POST",
+    ],
 )
 def login():
 
     if request.method == "POST":
 
-        username = request.form.get(
-            "username",
-            "",
-        ).strip()
+        username = (
+            request.form.get(
+                "username",
+                "",
+            )
+            .strip()
+        )
 
         password = request.form.get(
             "password",
@@ -717,7 +625,9 @@ def login():
             ] = True
 
             schrijf_log(
-                f"LOGIN succesvol voor gebruiker '{username}'."
+                f"Login succesvol voor gebruiker "
+                f"'{username}'.",
+                onderwerp="login",
             )
 
             return redirect(
@@ -725,12 +635,15 @@ def login():
             )
 
         schrijf_log(
-            f"LOGIN mislukt voor gebruikersnaam '{username}'.",
-            "warning",
+            f"Login mislukt voor "
+            f"gebruikersnaam '{username}'.",
+            onderwerp="login",
+            niveau="warning",
         )
 
         flash(
-            "Ongeldige gebruikersnaam of wachtwoord.",
+            "Ongeldige gebruikersnaam "
+            "of wachtwoord.",
             "error",
         )
 
@@ -750,7 +663,8 @@ def login():
 def logout():
 
     schrijf_log(
-        "LOGOUT uitgevoerd."
+        "Logout uitgevoerd.",
+        onderwerp="login",
     )
 
     session.clear()
@@ -767,13 +681,17 @@ def logout():
 @app.route("/")
 def index():
 
-    inschrijvingen = lees_config()
+    inschrijvingen = (
+        lees_config()
+    )
 
     for item in inschrijvingen:
 
-        item["volgende"] = volgende_datum(
-            item["dag"],
-            item["tijd"],
+        item["volgende"] = (
+            volgende_datum(
+                item["dag"],
+                item["tijd"],
+            )
         )
 
         item["lessen"] = (
@@ -782,23 +700,34 @@ def index():
             )
         )
 
-        actuele_status = get_status(
-            item["naam"]
+        actuele_status = (
+            get_status(
+                item["naam"]
+            )
         )
 
-        if actuele_status["code"] != "onbekend":
+        if (
+            actuele_status["code"]
+            != "onbekend"
+        ):
 
-            item["status"] = actuele_status
+            item["status"] = (
+                actuele_status
+            )
 
         elif item["lessen"]:
 
             item["status"] = (
-                item["lessen"][0]["status"]
+                item["lessen"][0][
+                    "status"
+                ]
             )
 
         else:
 
-            item["status"] = actuele_status
+            item["status"] = (
+                actuele_status
+            )
 
     return render_template(
         "index.html",
@@ -813,22 +742,30 @@ def index():
 @app.post(
     "/inschrijving/<section>/uitvoeren"
 )
-def run_inschrijving(section):
+def run_inschrijving(
+    section
+):
 
     schrijf_log(
-        f"HANDMATIG inschrijven gestart: {section}"
+        f"Handmatig inschrijven gestart: "
+        f"{section}",
+        onderwerp="inschrijving",
     )
 
     try:
 
-        resultaat = voer_inschrijving_uit(
-            section
+        resultaat = (
+            voer_inschrijving_uit(
+                section
+            )
         )
 
         if resultaat:
 
             schrijf_log(
-                f"HANDMATIG inschrijven geslaagd: {section}"
+                f"Handmatig inschrijven geslaagd: "
+                f"{section}",
+                onderwerp="inschrijving",
             )
 
             flash(
@@ -839,8 +776,10 @@ def run_inschrijving(section):
         else:
 
             schrijf_log(
-                f"HANDMATIG inschrijven niet uitgevoerd: {section}",
-                "warning",
+                f"Handmatig inschrijven niet uitgevoerd: "
+                f"{section}",
+                onderwerp="inschrijving",
+                niveau="warning",
             )
 
             flash(
@@ -851,9 +790,10 @@ def run_inschrijving(section):
     except Exception as error:
 
         schrijf_log(
-            f"HANDMATIG inschrijven fout "
+            f"Handmatig inschrijven fout "
             f"{section}: {error}",
-            "exception",
+            onderwerp="inschrijving",
+            niveau="error",
         )
 
         flash(
@@ -873,11 +813,15 @@ def run_inschrijving(section):
 @app.post(
     "/inschrijving/<section>/uitschrijven/<datum>"
 )
-def uitschrijven(section, datum):
+def uitschrijven(
+    section,
+    datum,
+):
 
     schrijf_log(
-        f"HANDMATIG uitschrijven gestart: "
-        f"{section} datum={datum}"
+        f"Handmatig uitschrijven gestart: "
+        f"{section} datum={datum}",
+        onderwerp="uitschrijving",
     )
 
     from datetime import date
@@ -888,14 +832,18 @@ def uitschrijven(section, datum):
             datum
         )
 
-        resultaat = uitschrijven_les(
-            section=section,
-            datum=les_datum,
+        resultaat = (
+            uitschrijven_les(
+                section=section,
+                datum=les_datum,
+            )
         )
 
         if resultaat:
 
-            config = lees_config_parser()
+            config = (
+                lees_config_parser()
+            )
 
             if section in config:
 
@@ -923,22 +871,27 @@ def uitschrijven(section, datum):
             )
 
             schrijf_log(
-                f"{section}: handmatig uitgeschreven "
-                f"voor {les_datum}; automatische "
-                "herinschrijving voor deze doel-les geblokkeerd."
+                f"{section}: handmatig "
+                f"uitgeschreven voor {les_datum}; "
+                "automatische herinschrijving "
+                "voor deze doel-les geblokkeerd.",
+                onderwerp="uitschrijving",
             )
 
             flash(
-                "Je bent uitgeschreven voor deze les.",
+                "Je bent uitgeschreven "
+                "voor deze les.",
                 "success",
             )
 
         else:
 
             schrijf_log(
-                f"HANDMATIG uitschrijven niet uitgevoerd: "
-                f"{section} datum={datum}",
-                "warning",
+                f"Handmatig uitschrijven niet "
+                f"uitgevoerd: {section} "
+                f"datum={datum}",
+                onderwerp="uitschrijving",
+                niveau="warning",
             )
 
             flash(
@@ -949,9 +902,10 @@ def uitschrijven(section, datum):
     except Exception as error:
 
         schrijf_log(
-            f"HANDMATIG uitschrijven fout "
+            f"Handmatig uitschrijven fout "
             f"{section} datum={datum}: {error}",
-            "exception",
+            onderwerp="uitschrijving",
+            niveau="error",
         )
 
         flash(
@@ -970,7 +924,10 @@ def uitschrijven(section, datum):
 
 @app.route(
     "/inschrijving/nieuw",
-    methods=["GET", "POST"],
+    methods=[
+        "GET",
+        "POST",
+    ],
 )
 def nieuwe_inschrijving():
 
@@ -1016,7 +973,8 @@ def nieuwe_inschrijving():
         except ValueError:
 
             fouten.append(
-                "Gebruik een geldige tijd in HH:MM-formaat."
+                "Gebruik een geldige tijd "
+                "in HH:MM-formaat."
             )
 
         if not les:
@@ -1045,7 +1003,9 @@ def nieuwe_inschrijving():
                 dagen=DAGEN,
             )
 
-        config = lees_config_parser()
+        config = (
+            lees_config_parser()
+        )
 
         nummer = volgende_nummer(
             config
@@ -1056,8 +1016,10 @@ def nieuwe_inschrijving():
         )
 
         schrijf_log(
-            f"NIEUWE INSCHRIJVING: {section} "
-            f"dag={dag} tijd={tijd} les={les}"
+            f"Nieuwe inschrijving: "
+            f"{section} dag={dag} "
+            f"tijd={tijd} les={les}",
+            onderwerp="instellingen",
         )
 
         config[section] = {
@@ -1072,22 +1034,27 @@ def nieuwe_inschrijving():
 
         try:
 
-            resultaat = voer_inschrijving_uit(
-                section
+            resultaat = (
+                voer_inschrijving_uit(
+                    section
+                )
             )
 
             if resultaat:
 
                 flash(
-                    "Les toegevoegd en direct ingeschreven.",
+                    "Les toegevoegd en "
+                    "direct ingeschreven.",
                     "success",
                 )
 
             else:
 
                 flash(
-                    "Les toegevoegd. Inschrijven is momenteel "
-                    "nog niet mogelijk; de automatische inschrijving "
+                    "Les toegevoegd. "
+                    "Inschrijven is momenteel "
+                    "nog niet mogelijk; de "
+                    "automatische inschrijving "
                     "blijft actief.",
                     "success",
                 )
@@ -1095,14 +1062,15 @@ def nieuwe_inschrijving():
         except Exception as error:
 
             schrijf_log(
-                f"Direct inschrijven na nieuwe inschrijving "
-                f"mislukt: {section}: {error}",
-                "error",
+                f"Direct inschrijven na "
+                f"toevoegen mislukt: {error}",
+                onderwerp="inschrijving",
+                niveau="error",
             )
 
             flash(
-                "Les toegevoegd, maar direct inschrijven "
-                f"mislukte: {error}",
+                "Les toegevoegd, maar direct "
+                f"inschrijven mislukte: {error}",
                 "error",
             )
 
@@ -1128,11 +1096,18 @@ def nieuwe_inschrijving():
 
 @app.route(
     "/inschrijving/<section>/bewerken",
-    methods=["GET", "POST"],
+    methods=[
+        "GET",
+        "POST",
+    ],
 )
-def bewerk_inschrijving(section):
+def bewerk_inschrijving(
+    section
+):
 
-    config = lees_config_parser()
+    config = (
+        lees_config_parser()
+    )
 
     if section not in config:
 
@@ -1187,7 +1162,8 @@ def bewerk_inschrijving(section):
         except ValueError:
 
             fouten.append(
-                "Gebruik een geldige tijd in HH:MM-formaat."
+                "Gebruik een geldige tijd "
+                "in HH:MM-formaat."
             )
 
         if not les:
@@ -1226,9 +1202,13 @@ def bewerk_inschrijving(section):
         config[section]["les"] = les
 
         schrijf_log(
-            f"INSCHRIJVING GEWIJZIGD: {section} "
+            f"Inschrijving gewijzigd: "
+            f"{section} "
             f"van={dict(oude_waarden)} "
-            f"naar={{'dag': dag, 'tijd': tijd, 'les': les}}"
+            f"naar={{'dag': dag, "
+            f"'tijd': tijd, "
+            f"'les': les}}",
+            onderwerp="instellingen",
         )
 
         schrijf_config(
@@ -1281,10 +1261,14 @@ def bewerk_inschrijving(section):
 )
 def api_lessen():
 
-    dag = request.args.get(
-        "dag",
-        "",
-    ).strip().lower()
+    dag = (
+        request.args.get(
+            "dag",
+            "",
+        )
+        .strip()
+        .lower()
+    )
 
     if dag not in DAGEN:
 
@@ -1295,33 +1279,44 @@ def api_lessen():
 
     try:
 
-        datum = volgende_datum(
-            dag,
-            "00:00",
-        ).date()
-
-        session = sportbit_api.create_session()
-
-        sportbit_api.login(
-            session
+        datum = (
+            volgende_datum(
+                dag,
+                "00:00",
+            )
+            .date()
         )
 
-        lessen = beschikbare_lessen_op_dag(
-            session=session,
-            datum=datum,
+        sportbit_session = (
+            sportbit_api.create_session()
+        )
+
+        sportbit_api.login(
+            sportbit_session
+        )
+
+        lessen = (
+            beschikbare_lessen_op_dag(
+                session=sportbit_session,
+                datum=datum,
+            )
         )
 
     except Exception as error:
 
         schrijf_log(
-            f"LESSEN OPHALEN MISLUKT: "
+            f"Lessen ophalen mislukt: "
             f"dag={dag} fout={error}",
-            "error",
+            onderwerp="sportbit",
+            niveau="error",
         )
 
         return jsonify({
             "lessen": [],
-            "error": "Lessen konden niet worden opgehaald.",
+            "error": (
+                "Lessen konden niet "
+                "worden opgehaald."
+            ),
         }), 500
 
     return jsonify({
@@ -1337,9 +1332,13 @@ def api_lessen():
 @app.post(
     "/inschrijving/<section>/verwijderen"
 )
-def delete_inschrijving(section):
+def delete_inschrijving(
+    section
+):
 
-    config = lees_config_parser()
+    config = (
+        lees_config_parser()
+    )
 
     if section not in config:
 
@@ -1351,7 +1350,9 @@ def delete_inschrijving(section):
     else:
 
         schrijf_log(
-            f"INSCHRIJVING VERWIJDERD: {section}"
+            f"Inschrijving verwijderd: "
+            f"{section}",
+            onderwerp="instellingen",
         )
 
         config.remove_section(
@@ -1386,7 +1387,10 @@ def delete_inschrijving(section):
 
 @app.route(
     "/instellingen",
-    methods=["GET", "POST"],
+    methods=[
+        "GET",
+        "POST",
+    ],
 )
 def instellingen():
 
@@ -1397,7 +1401,9 @@ def instellingen():
             sla_instellingen_op()
 
             schrijf_log(
-                "Instellingen opgeslagen en runtime opnieuw geladen."
+                "Instellingen opgeslagen "
+                "en runtime opnieuw geladen.",
+                onderwerp="instellingen",
             )
 
             flash(
@@ -1408,12 +1414,15 @@ def instellingen():
         except Exception as error:
 
             schrijf_log(
-                f"Instellingen opslaan mislukt: {error}",
-                "error",
+                f"Instellingen opslaan mislukt: "
+                f"{error}",
+                onderwerp="instellingen",
+                niveau="error",
             )
 
             flash(
-                f"Instellingen opslaan mislukt: {error}",
+                f"Instellingen opslaan mislukt: "
+                f"{error}",
                 "error",
             )
 
@@ -1424,6 +1433,42 @@ def instellingen():
     return render_template(
         "settings.html",
         settings=lees_instellingen(),
+    )
+
+@app.post("/scheduler/nu-uitvoeren")
+def scheduler_nu_uitvoeren():
+
+    schrijf_log(
+        "HANDMATIGE SCHEDULERCONTROLE gestart."
+    )
+
+    try:
+
+        voer_automatische_inschrijvingen_uit()
+
+        schrijf_log(
+            "HANDMATIGE SCHEDULERCONTROLE succesvol afgerond."
+        )
+
+        flash(
+            "Schedulercontrole uitgevoerd.",
+            "success",
+        )
+
+    except Exception as error:
+
+        schrijf_log(
+            f"HANDMATIGE SCHEDULERCONTROLE mislukt: {error}",
+            "exception",
+        )
+
+        flash(
+            f"Schedulercontrole mislukt: {error}",
+            "error",
+        )
+
+    return redirect(
+        url_for("instellingen")
     )
 
 
@@ -1451,7 +1496,8 @@ def documentatie():
 def testmail():
 
     schrijf_log(
-        "TESTMAIL gestart."
+        "Testmail gestart.",
+        onderwerp="notificatie",
     )
 
     import notify
@@ -1461,7 +1507,8 @@ def testmail():
         notify.send_test_mail()
 
         schrijf_log(
-            "TESTMAIL succesvol verstuurd."
+            "Testmail succesvol verstuurd.",
+            onderwerp="notificatie",
         )
 
         flash(
@@ -1472,8 +1519,9 @@ def testmail():
     except Exception as error:
 
         schrijf_log(
-            f"TESTMAIL mislukt: {error}",
-            "exception",
+            f"Testmail mislukt: {error}",
+            onderwerp="notificatie",
+            niveau="error",
         )
 
         flash(
@@ -1486,30 +1534,60 @@ def testmail():
     )
 
 
+@app.route("/testntfy", methods=["POST"])
+def testntfy():
+
+    schrijf_log(
+        "Test ntfy gestart.",
+        onderwerp="notificatie",
+    )
+
+    try:
+
+        send_test_ntfy()
+
+        schrijf_log(
+            "Test ntfy succesvol verstuurd.",
+            onderwerp="notificatie",
+        )
+
+        flash(
+            "Test ntfy-notificatie is verstuurd.",
+            "success",
+        )
+
+    except Exception as error:
+
+        schrijf_log(
+            f"Test ntfy mislukt: {error}",
+            onderwerp="notificatie",
+            niveau="error",
+        )
+
+        flash(
+            f"Test ntfy mislukt: {error}",
+            "error",
+        )
+
+    return redirect(
+        url_for("instellingen")
+    )
+
 # ============================================================
 # INGEBOUWDE SCHEDULER
 # ============================================================
 
-_scheduler_lock = threading.Lock()
+_scheduler_lock = (
+    threading.Lock()
+)
+
 _scheduler_last_run = None
+
 _scheduler_started = False
 
 
-def reset_scheduler_trigger():
-    """Sta na gewijzigde schedulerinstellingen een nieuwe run toe."""
-
-    global _scheduler_last_run
-
-    with _scheduler_lock:
-        _scheduler_last_run = None
-
-    schrijf_log(
-        "Scheduler-trigger gereset na wijziging van schedulerinstellingen."
-    )
-
-
 def scheduler_instellingen():
-    """Lees de schedulerinstellingen rechtstreeks uit de actuele .env."""
+    """Lees schedulerinstellingen rechtstreeks uit de actuele .env."""
 
     waarden = dotenv_values(
         ENV_FILE
@@ -1551,51 +1629,30 @@ def scheduler_instellingen():
 
 
 def voer_automatische_inschrijvingen_uit():
-    config = lees_config_parser()
+    """Behandel iedere concrete doel-les maximaal één keer automatisch."""
+
+    config = (
+        lees_config_parser()
+    )
 
     secties = [
         section
         for section in config.sections()
-        if section.startswith("inschrijving_")
+        if section.startswith(
+            "inschrijving_"
+        )
     ]
 
-    try:
-
-        _, _, timezone_naam = scheduler_instellingen()
-
-        timezone = ZoneInfo(
-            timezone_naam
-        )
-
-        nu = datetime.now(
-            timezone
-        )
-
-    except Exception:
-
-        nu = datetime.now()
-        timezone_naam = "onbekend"
-
-    vandaag = nu.date()
-
     schrijf_log(
-        "[SCHEDULER] Controle gestart"
-    )
-
-    schrijf_log(
-        f"[SCHEDULER] Tijd: "
-        f"{nu.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+        "Automatische SportBit-scheduler gestart.",
+        onderwerp="scheduler",
     )
 
     if not secties:
 
         schrijf_log(
-            "[SCHEDULER] Geen inschrijvingen geconfigureerd.",
-            "warning",
-        )
-
-        schrijf_log(
-            "[SCHEDULER] Controle afgerond"
+            "Geen inschrijvingen geconfigureerd.",
+            onderwerp="scheduler",
         )
 
         return
@@ -1621,62 +1678,22 @@ def voer_automatische_inschrijvingen_uit():
                 "les",
             ).strip()
 
-            eerste = volgende_datum(
+            doel = volgende_datum(
                 dag,
                 tijd,
             )
 
-            if eerste is None:
-
-                schrijf_log(
-                    f"[{section}] {les} "
-                    "→ configuratie ongeldig",
-                    "warning",
-                )
-
-                continue
-
-            tweede = (
-                eerste
-                + timedelta(days=7)
-            )
-
-            doel = None
-
-            for kandidaat in (
-                eerste,
-                tweede,
-            ):
-
-                openingsdatum = (
-                    kandidaat.date()
-                    - timedelta(days=7)
-                )
-
-                if openingsdatum == vandaag:
-
-                    doel = kandidaat
-
-                    break
-
-            # Iedere inschrijving wordt zichtbaar gecontroleerd.
             if doel is None:
 
                 schrijf_log(
-                    f"[{section}] {les} "
-                    "→ geen actie nodig"
+                    f"{section}: geen doelmoment gevonden.",
+                    onderwerp="scheduler",
+                    niveau="warning",
                 )
 
                 continue
 
             datum = doel.date()
-
-            log_prefix = (
-                f"[{section}] "
-                f"{les} "
-                f"{datum} "
-                f"{tijd.strftime('%H:%M')}"
-            )
 
             if is_handmatig_overgeslagen(
                 section,
@@ -1686,8 +1703,12 @@ def voer_automatische_inschrijvingen_uit():
             ):
 
                 schrijf_log(
-                    f"{log_prefix} "
-                    "→ handmatig overgeslagen"
+                    f"{section}: "
+                    f"{datum} "
+                    f"{tijd.strftime('%H:%M')} "
+                    "overgeslagen omdat deze "
+                    "doel-les handmatig is geannuleerd.",
+                    onderwerp="scheduler",
                 )
 
                 continue
@@ -1700,46 +1721,31 @@ def voer_automatische_inschrijvingen_uit():
             ):
 
                 schrijf_log(
-                    f"{log_prefix} "
-                    "→ al afgehandeld"
-                )
-
-                continue
-
-            if not inschrijving_open(
-                datum
-            ):
-
-                schrijf_log(
-                    f"{log_prefix} "
-                    "→ registratie nog niet open"
+                    f"{section}: "
+                    f"{datum} "
+                    f"{tijd.strftime('%H:%M')} "
+                    "al automatisch afgehandeld.",
+                    onderwerp="scheduler",
                 )
 
                 continue
 
             schrijf_log(
-                f"{log_prefix} "
-                "→ registratie geopend"
-            )
-
-            schrijf_log(
-                f"{log_prefix} "
-                "→ inschrijving gestart"
+                f"Automatisch uitvoeren: "
+                f"{section} -> "
+                f"{datum} "
+                f"{tijd.strftime('%H:%M')} "
+                f"({les})",
+                onderwerp="scheduler",
             )
 
             resultaat = (
                 voer_inschrijving_uit(
-                    section,
-                    doel=doel,
+                    section
                 )
             )
 
             if resultaat:
-
-                schrijf_log(
-                    f"{log_prefix} "
-                    "→ succesvol"
-                )
 
                 markeer_afgehandeld(
                     section,
@@ -1749,30 +1755,29 @@ def voer_automatische_inschrijvingen_uit():
                 )
 
                 schrijf_log(
-                    f"{log_prefix} "
-                    "→ afgehandeld opgeslagen"
+                    f"{section}: succesvol uitgevoerd "
+                    "en gemarkeerd als afgehandeld.",
+                    onderwerp="scheduler",
                 )
 
             else:
 
                 schrijf_log(
-                    f"{log_prefix} "
-                    "→ niet uitgevoerd; "
-                    "volgende run probeert opnieuw",
-                    "warning",
+                    f"{section}: niet uitgevoerd "
+                    "(momenteel niet open); "
+                    "wordt later opnieuw gecontroleerd.",
+                    onderwerp="scheduler",
                 )
 
         except Exception as error:
 
             schrijf_log(
-                f"[{section}] "
-                f"→ FOUT: {error}",
-                "exception",
+                f"{section}: fout tijdens "
+                f"automatische inschrijving: "
+                f"{error}",
+                onderwerp="scheduler",
+                niveau="error",
             )
-
-    schrijf_log(
-        "[SCHEDULER] Controle afgerond"
-    )
 
 
 def scheduler_loop():
@@ -1807,7 +1812,8 @@ def scheduler_loop():
                     "Scheduler-instellingen: "
                     f"enabled={enabled}, "
                     f"tijd={ingestelde_tijd}, "
-                    f"timezone={timezone_naam}"
+                    f"timezone={timezone_naam}",
+                    onderwerp="scheduler",
                 )
 
                 vorige_instellingen = (
@@ -1816,7 +1822,9 @@ def scheduler_loop():
 
             if not enabled:
 
-                time.sleep(10)
+                time.sleep(
+                    10
+                )
 
                 continue
 
@@ -1831,10 +1839,13 @@ def scheduler_loop():
                 schrijf_log(
                     f"Ongeldige scheduler-timezone: "
                     f"{timezone_naam}",
-                    "error",
+                    onderwerp="scheduler",
+                    niveau="error",
                 )
 
-                time.sleep(60)
+                time.sleep(
+                    60
+                )
 
                 continue
 
@@ -1842,11 +1853,13 @@ def scheduler_loop():
                 timezone
             )
 
-            huidige_tijd = nu.strftime(
-                "%H:%M"
+            huidige_tijd = (
+                nu.strftime("%H:%M")
             )
 
-            huidige_datum = nu.date()
+            huidige_datum = (
+                nu.date()
+            )
 
             if (
                 huidige_tijd
@@ -1863,13 +1876,16 @@ def scheduler_loop():
                     ):
 
                         schrijf_log(
-                            f"Scheduler gestart om "
-                            f"{nu.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+                            "Scheduler gestart om "
+                            f"{nu.strftime('%Y-%m-%d %H:%M:%S %Z')}",
+                            onderwerp="scheduler",
                         )
 
                         try:
 
-                            voer_automatische_inschrijvingen_uit()
+                            (
+                                voer_automatische_inschrijvingen_uit()
+                            )
 
                         finally:
 
@@ -1877,16 +1893,21 @@ def scheduler_loop():
                                 huidige_datum
                             )
 
-            time.sleep(10)
+            time.sleep(
+                10
+            )
 
         except Exception as error:
 
             schrijf_log(
                 f"Fout in scheduler: {error}",
-                "exception",
+                onderwerp="scheduler",
+                niveau="error",
             )
 
-            time.sleep(30)
+            time.sleep(
+                30
+            )
 
 
 def start_ingebouwde_scheduler():
@@ -1895,13 +1916,11 @@ def start_ingebouwde_scheduler():
     global _scheduler_started
 
     if _scheduler_started:
-
         return
 
     with _scheduler_lock:
 
         if _scheduler_started:
-
             return
 
         _scheduler_started = True
@@ -1924,22 +1943,26 @@ def start_ingebouwde_scheduler():
             "Ingebouwde scheduler gestart: "
             f"enabled={enabled}, "
             f"tijd={ingestelde_tijd}, "
-            f"timezone={timezone_naam}"
+            f"timezone={timezone_naam}",
+            onderwerp="scheduler",
         )
 
 
-# Start ook wanneer Flask/Gunicorn deze module importeert.
+# Start wanneer Flask/Gunicorn importeert.
 start_ingebouwde_scheduler()
 
 
 if not login_ingesteld():
 
     schrijf_log(
-        "WAARSCHUWING: WEB_USERNAME/WEB_PASSWORD "
-        "zijn niet ingesteld. De volledige webinterface "
-        "(inclusief Instellingen) is hierdoor bereikbaar "
-        "voor iedereen die deze server kan benaderen.",
-        "warning",
+        "WAARSCHUWING: "
+        "WEB_USERNAME/WEB_PASSWORD zijn "
+        "niet ingesteld. De volledige "
+        "webinterface is hierdoor bereikbaar "
+        "voor iedereen die deze server kan "
+        "benaderen.",
+        onderwerp="login",
+        niveau="warning",
     )
 
 
@@ -1947,12 +1970,16 @@ if not login_ingesteld():
 # LOG
 # ============================================================
 
-def lees_logbestand(max_regels=500):
+def lees_logbestand(
+    max_regels=500
+):
     """Lees de laatste logregels uit het permanente logbestand."""
 
     if not LOG_FILE.exists():
 
-        return "Nog geen logbestand beschikbaar."
+        return (
+            "Nog geen logbestand beschikbaar."
+        )
 
     try:
 
@@ -1962,11 +1989,15 @@ def lees_logbestand(max_regels=500):
             errors="replace",
         ) as bestand:
 
-            regels = bestand.readlines()
+            regels = (
+                bestand.readlines()
+            )
 
         if not regels:
 
-            return "Logbestand is nog leeg."
+            return (
+                "Logbestand is nog leeg."
+            )
 
         return "".join(
             regels[-max_regels:]
@@ -1975,8 +2006,8 @@ def lees_logbestand(max_regels=500):
     except OSError as error:
 
         return (
-            "Logbestand kon niet worden gelezen: "
-            f"{error}"
+            "Logbestand kon niet worden "
+            f"gelezen: {error}"
         )
 
 
@@ -2011,37 +2042,31 @@ def api_log():
 
 if __name__ == "__main__":
 
-    print()
-    print("=" * 55)
-    print("Go Personal · SportBit webapp")
-    print("=" * 55)
-    print()
+    schrijf_log(
+        "Go Personal · SportBit webapp gestart.",
+        onderwerp="app",
+    )
 
     if not login_ingesteld():
 
-        print(
-            "WAARSCHUWING: WEB_USERNAME/WEB_PASSWORD "
-            "zijn niet ingesteld. De volledige webinterface "
-            "(inclusief Instellingen) is hierdoor bereikbaar "
-            "voor iedereen die deze server kan benaderen. "
-            "Stel deze in via .env of de Instellingen-pagina "
-            "voordat je de app buiten je eigen apparaat "
-            "beschikbaar maakt."
+        schrijf_log(
+            "WEB_USERNAME/WEB_PASSWORD zijn niet "
+            "ingesteld. De volledige webinterface "
+            "is hierdoor bereikbaar voor iedereen "
+            "die deze server kan benaderen.",
+            onderwerp="login",
+            niveau="warning",
         )
 
-        print()
-
-    print(
-        "Luistert op: 0.0.0.0:5000"
+    schrijf_log(
+        "Luistert op 0.0.0.0:5000.",
+        onderwerp="app",
     )
 
-    print()
-
-    print(
-        "Gebruik Gunicorn voor productie."
+    schrijf_log(
+        "Gebruik Gunicorn voor productie.",
+        onderwerp="app",
     )
-
-    print()
 
     app.run(
         host="0.0.0.0",

@@ -3,10 +3,15 @@
 import io
 from contextlib import redirect_stdout
 
-import sportbit_api
 import notify
+import sportbit_api
 
-from sportbit_config import lees_config_parser
+from sportbit_automation_state import (
+    markeer_handmatig_overgeslagen,
+)
+from sportbit_config import (
+    lees_config_parser,
+)
 from sportbit_dates import (
     inschrijving_open,
     parse_tijd,
@@ -16,14 +21,36 @@ from sportbit_events import (
     bepaal_event_status,
     zoek_event,
 )
-from sportbit_automation_state import markeer_handmatig_overgeslagen
-
+from sportbit_logging import (
+    schrijf_log,
+)
 from sportbit_state import (
+    next_lessons_cache,
     run_lock,
     set_last_output,
-    next_lessons_cache,
     statuses,
 )
+
+
+def _log(
+    output,
+    bericht,
+    onderwerp,
+    niveau="info",
+):
+    """Schrijf naar het permanente log en optioneel naar de laatste output."""
+
+    schrijf_log(
+        bericht,
+        niveau=niveau,
+        onderwerp=onderwerp,
+    )
+
+    if output is not None:
+        print(
+            f"[{onderwerp}] {bericht}",
+            file=output,
+        )
 
 
 def vernieuw_status(
@@ -32,6 +59,7 @@ def vernieuw_status(
     datum,
     les,
     tijd,
+    output=None,
 ):
     """
     Haal de actuele status opnieuw op bij SportBit
@@ -41,9 +69,15 @@ def vernieuw_status(
     het event niet gevonden kan worden.
     """
 
-    print(
-        f"[STATUS] {les} {datum} {tijd.strftime('%H:%M')} "
-        "→ actuele status ophalen"
+    tijd_weergave = tijd.strftime(
+        "%H:%M"
+    )
+
+    _log(
+        output,
+        f"{les} {datum} {tijd_weergave} "
+        "→ actuele status ophalen",
+        "status",
     )
 
     event = zoek_event(
@@ -55,9 +89,12 @@ def vernieuw_status(
 
     if event is None:
 
-        print(
-            f"[STATUS] {les} {datum} {tijd.strftime('%H:%M')} "
-            "→ event niet gevonden"
+        _log(
+            output,
+            f"{les} {datum} {tijd_weergave} "
+            "→ event niet gevonden",
+            "status",
+            niveau="warning",
         )
 
         return None
@@ -67,7 +104,9 @@ def vernieuw_status(
         datum,
     )
 
-    statuses[section] = status
+    statuses[
+        section
+    ] = status
 
     # Oude lessen-cache wissen zodat de homepage
     # direct de actuele status gebruikt.
@@ -76,9 +115,11 @@ def vernieuw_status(
         None,
     )
 
-    print(
-        f"[STATUS] {les} {datum} {tijd.strftime('%H:%M')} "
-        f"→ {status}"
+    _log(
+        output,
+        f"{les} {datum} {tijd_weergave} "
+        f"→ {status.get('text', status)}",
+        "status",
     )
 
     return status
@@ -141,17 +182,23 @@ def voer_inschrijving_uit(
             )
 
     datum = doel.date()
-    tijd_weergave = tijd.strftime("%H:%M")
+
+    tijd_weergave = tijd.strftime(
+        "%H:%M"
+    )
 
     # ---------------------------------------------------------
     # Bescherming tegen directe/automatische aanroepen
     # ---------------------------------------------------------
 
-    if not inschrijving_open(datum):
+    if not inschrijving_open(
+        datum
+    ):
 
-        print(
-            f"[INSCHRIJVING] {les} {datum} {tijd_weergave} "
-            "→ registratie nog niet open"
+        schrijf_log(
+            f"{les} {datum} {tijd_weergave} "
+            "→ registratie nog niet open",
+            onderwerp="inschrijving",
         )
 
         return False
@@ -166,12 +213,16 @@ def voer_inschrijving_uit(
 
             with redirect_stdout(output):
 
-                print(
-                    f"[INSCHRIJVING] {les} {datum} {tijd_weergave} "
-                    "→ gestart"
+                _log(
+                    output,
+                    f"{les} {datum} {tijd_weergave} "
+                    "→ gestart",
+                    "inschrijving",
                 )
 
-                session = sportbit_api.create_session()
+                session = (
+                    sportbit_api.create_session()
+                )
 
                 sportbit_api.login(
                     session
@@ -204,25 +255,36 @@ def voer_inschrijving_uit(
                     "-",
                 )
 
-                print(
-                    f"[INSCHRIJVING] {les} {datum} {tijd_weergave} "
-                    f"→ event gevonden ({deelnemers}/{maximum})"
+                _log(
+                    output,
+                    f"{les} {datum} {tijd_weergave} "
+                    f"→ event gevonden "
+                    f"({deelnemers}/{maximum})",
+                    "inschrijving",
                 )
 
-                if event.get("aangemeld"):
+                if event.get(
+                    "aangemeld"
+                ):
 
-                    print(
-                        f"[INSCHRIJVING] {les} {datum} {tijd_weergave} "
-                        "→ al ingeschreven"
+                    _log(
+                        output,
+                        f"{les} {datum} {tijd_weergave} "
+                        "→ al ingeschreven",
+                        "inschrijving",
                     )
 
                     resultaat = True
 
-                elif event.get("opWachtlijst"):
+                elif event.get(
+                    "opWachtlijst"
+                ):
 
-                    print(
-                        f"[INSCHRIJVING] {les} {datum} {tijd_weergave} "
-                        "→ al op wachtlijst"
+                    _log(
+                        output,
+                        f"{les} {datum} {tijd_weergave} "
+                        "→ al op wachtlijst",
+                        "inschrijving",
                     )
 
                     resultaat = True
@@ -243,10 +305,33 @@ def voer_inschrijving_uit(
                         "inschrijving niet bevestigd."
                     )
 
-                print(
-                    f"[INSCHRIJVING] {les} {datum} {tijd_weergave} "
-                    "→ succesvol"
+                _log(
+                    output,
+                    f"{les} {datum} {tijd_weergave} "
+                    "→ succesvol",
+                    "inschrijving",
                 )
+
+
+                try:
+
+                    notify.notify_inschrijving_gelukt(
+                        section=section,
+                        datum=datum,
+                        les=les,
+                        tijd=tijd,
+                )
+
+                except Exception as notify_error:
+
+                    _log(
+                        output,
+                        f"Succesnotificatie mislukt: "
+                        f"{notify_error}",
+                        "notificatie",
+                        niveau="error",
+                    )
+
 
                 # -------------------------------------------------
                 # Direct na de actie actuele status ophalen
@@ -260,20 +345,28 @@ def voer_inschrijving_uit(
                         datum=datum,
                         les=les,
                         tijd=tijd,
+                        output=output,
                     )
 
                 except Exception as status_error:
 
-                    print(
-                        f"[STATUS] {les} {datum} {tijd_weergave} "
-                        f"→ status ophalen mislukt: {status_error}"
+                    _log(
+                        output,
+                        f"{les} {datum} {tijd_weergave} "
+                        f"→ status ophalen mislukt: "
+                        f"{status_error}",
+                        "status",
+                        niveau="warning",
                     )
 
     except Exception as error:
 
-        print(
-            f"[INSCHRIJVING] {les} {datum} {tijd_weergave} "
-            f"→ fout: {error}"
+        _log(
+            output,
+            f"{les} {datum} {tijd_weergave} "
+            f"→ fout: {error}",
+            "inschrijving",
+            niveau="error",
         )
 
         log = output.getvalue()
@@ -295,9 +388,12 @@ def voer_inschrijving_uit(
 
         except Exception as notify_error:
 
-            print(
-                f"[NOTIFICATIE] Inschrijving mislukt: "
-                f"{notify_error}"
+            _log(
+                output,
+                f"Inschrijving mislukt: "
+                f"{notify_error}",
+                "notificatie",
+                niveau="error",
             )
 
         raise
@@ -344,7 +440,9 @@ def uitschrijven_les(
         tijd_string
     )
 
-    tijd_weergave = tijd.strftime("%H:%M")
+    tijd_weergave = tijd.strftime(
+        "%H:%M"
+    )
 
     output = io.StringIO()
 
@@ -356,12 +454,16 @@ def uitschrijven_les(
 
             with redirect_stdout(output):
 
-                print(
-                    f"[UITSCHRIJVING] {les} {datum} {tijd_weergave} "
-                    "→ gestart"
+                _log(
+                    output,
+                    f"{les} {datum} {tijd_weergave} "
+                    "→ gestart",
+                    "uitschrijving",
                 )
 
-                session = sportbit_api.create_session()
+                session = (
+                    sportbit_api.create_session()
+                )
 
                 sportbit_api.login(
                     session
@@ -381,21 +483,31 @@ def uitschrijven_les(
                         f"{tijd_weergave} op {datum}."
                     )
 
-                print(
-                    f"[UITSCHRIJVING] {les} {datum} {tijd_weergave} "
+                _log(
+                    output,
+                    f"{les} {datum} {tijd_weergave} "
                     f"→ event gevonden "
-                    f"(aangemeld={event.get('aangemeld')}, "
-                    f"wachtlijst={event.get('opWachtlijst')})"
+                    f"(aangemeld="
+                    f"{event.get('aangemeld')}, "
+                    f"wachtlijst="
+                    f"{event.get('opWachtlijst')})",
+                    "uitschrijving",
                 )
 
                 if (
-                    not event.get("aangemeld")
-                    and not event.get("opWachtlijst")
+                    not event.get(
+                        "aangemeld"
+                    )
+                    and not event.get(
+                        "opWachtlijst"
+                    )
                 ):
 
-                    print(
-                        f"[UITSCHRIJVING] {les} {datum} {tijd_weergave} "
-                        "→ al niet ingeschreven"
+                    _log(
+                        output,
+                        f"{les} {datum} {tijd_weergave} "
+                        "→ al niet ingeschreven",
+                        "uitschrijving",
                     )
 
                     resultaat = True
@@ -416,9 +528,11 @@ def uitschrijven_les(
                         "uitschrijving niet bevestigd."
                     )
 
-                print(
-                    f"[UITSCHRIJVING] {les} {datum} {tijd_weergave} "
-                    "→ succesvol"
+                _log(
+                    output,
+                    f"{les} {datum} {tijd_weergave} "
+                    "→ succesvol",
+                    "uitschrijving",
                 )
 
                 # Een handmatige uitschrijving geldt alleen voor deze
@@ -431,9 +545,12 @@ def uitschrijven_les(
                     tijd=tijd,
                 )
 
-                print(
-                    f"[SKIP] {les} {datum} {tijd_weergave} "
-                    "→ automatische herinschrijving geblokkeerd"
+                _log(
+                    output,
+                    f"{les} {datum} {tijd_weergave} "
+                    "→ automatische herinschrijving "
+                    "geblokkeerd",
+                    "scheduler",
                 )
 
                 # Direct na de DELETE de actuele status
@@ -446,25 +563,35 @@ def uitschrijven_les(
                         datum=datum,
                         les=les,
                         tijd=tijd,
+                        output=output,
                     )
 
                 except Exception as status_error:
 
-                    print(
-                        f"[STATUS] {les} {datum} {tijd_weergave} "
-                        f"→ status ophalen mislukt: {status_error}"
+                    _log(
+                        output,
+                        f"{les} {datum} {tijd_weergave} "
+                        f"→ status ophalen mislukt: "
+                        f"{status_error}",
+                        "status",
+                        niveau="warning",
                     )
 
     except Exception as error:
 
-        print(
-            f"[UITSCHRIJVING] {les} {datum} {tijd_weergave} "
-            f"→ fout: {error}"
+        _log(
+            output,
+            f"{les} {datum} {tijd_weergave} "
+            f"→ fout: {error}",
+            "uitschrijving",
+            niveau="error",
         )
 
         log = output.getvalue()
 
-        set_last_output(log)
+        set_last_output(
+            log
+        )
 
         try:
 
@@ -479,9 +606,12 @@ def uitschrijven_les(
 
         except Exception as notify_error:
 
-            print(
-                f"[NOTIFICATIE] Uitschrijving mislukt: "
-                f"{notify_error}"
+            _log(
+                output,
+                f"Uitschrijving mislukt: "
+                f"{notify_error}",
+                "notificatie",
+                niveau="error",
             )
 
         raise

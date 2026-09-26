@@ -934,6 +934,36 @@ if (
         true;
 
 
+
+
+
+    function kleurLogregels() {
+        const log = document.getElementById("live-log");
+
+        if (!log) {
+            return;
+        }
+
+        const regels = log.textContent.split("\n");
+
+        log.innerHTML = regels
+            .map(regel => {
+                const veilig = regel
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;");
+
+                if (regel.includes(" ERROR ")) {
+                    return `<span class="log-error">${veilig}</span>`;
+                }
+
+                return veilig;
+            })
+            .join("\n");
+    }
+
+    kleurLogregels();
+
     /* ========================================================
        Scrollpositie
        ======================================================== */

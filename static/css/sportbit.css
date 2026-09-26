@@ -1060,6 +1060,10 @@ form select option {
     overscroll-behavior: contain;
 }
 
+.log-error {
+    color: #dc2626;
+}
+
 /* Mobiel */
 @media (max-width: 600px) {
     .log {

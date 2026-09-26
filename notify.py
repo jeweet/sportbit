@@ -1,167 +1,534 @@
-"""E-mailnotificaties voor mislukte SportBit-inschrijvingen.
-
-De module staat bewust los van de Flask/SportBit-logica. Mail wordt alleen
-verstuurd wanneer een daadwerkelijke inschrijfpoging mislukt, bijvoorbeeld
-wanneer een vaste les niet bestaat op de doel-datum (feestdag/kerstWOD) of
-wanneer SportBit de inschrijving niet bevestigt.
-
-Configuratie via .env:
-    NOTIFY_ENABLED=true
-    NOTIFY_EMAIL_TO=jij@example.com
-    SMTP_HOST=smtp.example.com
-    SMTP_PORT=587
-    SMTP_USERNAME=jij@example.com
-    SMTP_PASSWORD=...
-    SMTP_USE_TLS=true
-    NOTIFY_FROM=jij@example.com   # optioneel
-"""
-
-import json
 import os
 import smtplib
-from datetime import date, time
-from pathlib import Path
 from email.message import EmailMessage
+
+import requests
+
+from sportbit_logging import schrijf_log
 
 
 def _enabled():
-    return os.getenv("NOTIFY_ENABLED", "false").strip().lower() in {
-        "1", "true", "yes", "on"
-    }
+    return (
+        os.getenv(
+            "NOTIFY_ENABLED",
+            "false",
+        )
+        .strip()
+        .lower()
+        in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+    )
+
+def _success_mail_enabled():
+    return (
+        os.getenv(
+            "NOTIFY_SUCCESS_ENABLED",
+            "false",
+        )
+        .strip()
+        .lower()
+        in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+    )
 
 
-def _smtp_send(message):
-    host = os.getenv("SMTP_HOST", "").strip()
-    try:
-        port = int(os.getenv("SMTP_PORT", "587"))
-    except ValueError as exc:
-        raise RuntimeError("SMTP_PORT moet een geldig getal zijn") from exc
+def _ntfy_success_enabled():
+    return (
+        os.getenv(
+            "NTFY_NOTIFY_SUCCESS",
+            "false",
+        )
+        .strip()
+        .lower()
+        in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+    )
 
-    username = os.getenv("SMTP_USERNAME", "").strip()
-    password = os.getenv("SMTP_PASSWORD", "")
-    use_tls = os.getenv("SMTP_USE_TLS", "true").strip().lower() in {
-        "1", "true", "yes", "on"
-    }
-
-    if not host:
-        raise RuntimeError("SMTP_HOST ontbreekt in .env")
-
-    with smtplib.SMTP(host, port, timeout=20) as smtp:
-        if use_tls:
-            smtp.starttls()
-        if username:
-            smtp.login(username, password)
-        smtp.send_message(message)
+def _ntfy_enabled():
+    return (
+        os.getenv(
+            "NTFY_ENABLED",
+            "false",
+        )
+        .strip()
+        .lower()
+        in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+    )
 
 
 def _mail_settings():
-    ontvanger = os.getenv("NOTIFY_EMAIL_TO", "").strip()
-    username = os.getenv("SMTP_USERNAME", "").strip()
-    afzender = os.getenv("NOTIFY_FROM", "").strip() or username
+    host = os.getenv(
+        "SMTP_HOST",
+        "",
+    ).strip()
+
+    port = int(
+        os.getenv(
+            "SMTP_PORT",
+            "587",
+        )
+    )
+
+    username = os.getenv(
+        "SMTP_USERNAME",
+        "",
+    ).strip()
+
+    password = os.getenv(
+        "SMTP_PASSWORD",
+        "",
+    )
+
+    gebruik_tls = (
+        os.getenv(
+            "SMTP_USE_TLS",
+            "true",
+        )
+        .strip()
+        .lower()
+        in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+    )
+
+    afzender = os.getenv(
+        "NOTIFY_FROM",
+        "",
+    ).strip()
+
+    ontvanger = os.getenv(
+        "NOTIFY_EMAIL_TO",
+        "",
+    ).strip()
+
+    if not host:
+        raise RuntimeError(
+            "SMTP_HOST ontbreekt in .env"
+        )
+
+    if not afzender:
+        raise RuntimeError(
+            "NOTIFY_FROM ontbreekt in .env"
+        )
 
     if not ontvanger:
-        raise RuntimeError("NOTIFY_EMAIL_TO ontbreekt in .env")
-    if not afzender:
-        raise RuntimeError("NOTIFY_FROM of SMTP_USERNAME ontbreekt in .env")
+        raise RuntimeError(
+            "NOTIFY_EMAIL_TO ontbreekt in .env"
+        )
 
-    return ontvanger, afzender
+    return {
+        "host": host,
+        "port": port,
+        "username": username,
+        "password": password,
+        "use_tls": gebruik_tls,
+        "from": afzender,
+        "to": ontvanger,
+    }
+
+
+def _ntfy_settings():
+    url = os.getenv(
+        "NTFY_URL",
+        "",
+    ).strip().rstrip("/")
+
+    topic = os.getenv(
+        "NTFY_TOPIC",
+        "",
+    ).strip()
+
+    token = os.getenv(
+        "NTFY_TOKEN",
+        "",
+    ).strip()
+
+    if not url:
+        raise RuntimeError(
+            "NTFY_URL ontbreekt in .env"
+        )
+
+    if not topic:
+        raise RuntimeError(
+            "NTFY_TOPIC ontbreekt in .env"
+        )
+
+    return {
+        "url": url,
+        "topic": topic,
+        "token": token,
+    }
+
+
+def _smtp_send(
+    message,
+):
+    instellingen = _mail_settings()
+
+    with smtplib.SMTP(
+        instellingen["host"],
+        instellingen["port"],
+        timeout=20,
+    ) as smtp:
+
+        if instellingen["use_tls"]:
+
+            smtp.starttls()
+
+        if (
+            instellingen["username"]
+            and instellingen["password"]
+        ):
+
+            smtp.login(
+                instellingen["username"],
+                instellingen["password"],
+            )
+
+        smtp.send_message(
+            message
+        )
+
+
+def _ntfy_send(
+    titel,
+    bericht,
+    prioriteit="default",
+):
+    instellingen = _ntfy_settings()
+
+    headers = {
+        "Title": titel,
+        "Priority": prioriteit,
+    }
+
+    if instellingen["token"]:
+        headers["Authorization"] = (
+            f"Bearer {instellingen['token']}"
+        )
+
+    response = requests.post(
+        (
+            f"{instellingen['url']}/"
+            f"{instellingen['topic']}"
+        ),
+        data=bericht.encode("utf-8"),
+        headers=headers,
+        timeout=10,
+    )
+
+    response.raise_for_status()
+
+
+def _notify(
+    titel,
+    bericht,
+    prioriteit="default",
+):
+    """Verstuur een notificatie via mail en/of ntfy."""
+
+    if not _enabled() and not _ntfy_enabled():
+        return
+
+    if _enabled():
+        # Mail wordt door de bestaande functies afgehandeld.
+
+        pass
+
+    if _ntfy_enabled():
+        _ntfy_send(
+            titel,
+            bericht,
+            prioriteit=prioriteit,
+        )
 
 
 def send_test_mail():
-    """Stuur een eenvoudige testmail met dezelfde SMTP-configuratie."""
-    ontvanger, afzender = _mail_settings()
+    """Verstuur een testmail."""
+
+    if not _enabled():
+        raise RuntimeError(
+            "Notificaties zijn uitgeschakeld."
+        )
+
+    instellingen = _mail_settings()
 
     message = EmailMessage()
-    message["Subject"] = "SportBit · testmail"
-    message["From"] = afzender
-    message["To"] = ontvanger
+
+    message["Subject"] = (
+        "SportBit testmail"
+    )
+
+    message["From"] = (
+        instellingen["from"]
+    )
+
+    message["To"] = (
+        instellingen["to"]
+    )
+
     message.set_content(
-        "Dit is een testmail van de Go Personal SportBit-webapp.\n\n"
-        "De e-mailnotificatie is correct geconfigureerd en bereikbaar."
+        "Dit is een testmail van de "
+        "SportBit-applicatie.\n\n"
+        "De e-mailnotificaties werken."
     )
 
-    _smtp_send(message)
-    return True
-
-
-def notify_les_ontbreekt(*, section, les, datum: date, tijd: time):
-    """Stuur maximaal één mail per inschrijving en doel-datum als de les ontbreekt."""
-    if not _enabled():
-        return False
-
-    ontvanger, afzender = _mail_settings()
-    state_file = Path(__file__).resolve().with_name("notify_state.json")
-
-    try:
-        state = json.loads(state_file.read_text(encoding="utf-8")) if state_file.exists() else {}
-    except (OSError, json.JSONDecodeError):
-        state = {}
-
-    key = f"missing:{section}:{datum.isoformat()}:{tijd.strftime('%H:%M')}:{les.casefold()}"
-    if state.get(key):
-        return False
-
-    onderwerp = f"SportBit les ontbreekt: {les} {datum:%d-%m-%Y} {tijd:%H:%M}"
-    body = (
-        "De dagelijkse SportBit-controle heeft de verwachte les niet gevonden.\n\n"
-        f"Inschrijving : {section}\n"
-        f"Les          : {les}\n"
-        f"Datum        : {datum:%d-%m-%Y}\n"
-        f"Tijd         : {tijd:%H:%M}\n\n"
-        "De les kan bijvoorbeeld zijn geannuleerd, vervangen of nog niet door SportBit zijn gepubliceerd.\n"
-        "Er is daarom geen automatische inschrijving voor deze les uitgevoerd.\n"
+    schrijf_log(
+        "Testmail wordt verstuurd.",
+        onderwerp="notificatie",
     )
 
-    message = EmailMessage()
-    message["Subject"] = onderwerp
-    message["From"] = afzender
-    message["To"] = ontvanger
-    message.set_content(body)
-
-    _smtp_send(message)
-
-    state[key] = True
-    tijdelijke = state_file.with_suffix(".tmp")
-    tijdelijke.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
-    tijdelijke.replace(state_file)
-    return True
-
-
-def notify_inschrijving_mislukt(*, section, les, datum: date, tijd: time, reden, log=""):
-    """Stuur een e-mail als een inschrijfpoging niet lukt.
-
-    Als notificaties niet zijn ingeschakeld of geen ontvanger is ingesteld,
-    doet deze functie niets.
-    """
-    if not _enabled():
-        return False
-
-    ontvanger = os.getenv("NOTIFY_EMAIL_TO", "").strip()
-    if not ontvanger:
-        raise RuntimeError("NOTIFY_EMAIL_TO ontbreekt in .env")
-
-    ontvanger, afzender = _mail_settings()
-
-    onderwerp = f"SportBit inschrijving mislukt: {les} {datum:%d-%m-%Y} {tijd:%H:%M}"
-    body = (
-        "De automatische SportBit-inschrijving is niet gelukt.\n\n"
-        f"Inschrijving : {section}\n"
-        f"Les          : {les}\n"
-        f"Datum        : {datum:%d-%m-%Y}\n"
-        f"Tijd         : {tijd:%H:%M}\n"
-        f"Reden        : {reden}\n\n"
-        "Dit kan bijvoorbeeld gebeuren als de vaste les op deze datum niet "
-        "bestaat of is vervangen door een andere les.\n\n"
-        "SportBit-output:\n"
-        f"{log or '(geen output)'}"
+    _smtp_send(
+        message
     )
 
-    message = EmailMessage()
-    message["Subject"] = onderwerp
-    message["From"] = afzender
-    message["To"] = ontvanger
-    message.set_content(body)
+    schrijf_log(
+        "Testmail succesvol verstuurd.",
+        onderwerp="notificatie",
+    )
 
-    _smtp_send(message)
+def send_test_ntfy():
+    """Verstuur een testnotificatie naar ntfy."""
 
-    return True
+    if not _ntfy_enabled():
+        raise RuntimeError(
+            "ntfy-notificaties zijn uitgeschakeld."
+        )
+
+    titel = "SportBit testnotificatie"
+
+    bericht = (
+        "Dit is een testnotificatie van de "
+        "SportBit-applicatie.\n\n"
+        "De ntfy-notificaties werken."
+    )
+
+    schrijf_log(
+        "Testnotificatie naar ntfy wordt verstuurd.",
+        onderwerp="notificatie",
+    )
+
+    _ntfy_send(
+        titel,
+        bericht,
+    )
+
+    schrijf_log(
+        "Testnotificatie naar ntfy succesvol verstuurd.",
+        onderwerp="notificatie",
+    )
+
+
+def notify_les_ontbreekt(
+    section,
+    datum,
+    les,
+    tijd,
+):
+    """Meld dat een verwachte les niet gevonden is."""
+
+    if not _enabled() and not _ntfy_enabled():
+        return
+
+    onderwerp = (
+        f"SportBit les niet gevonden: {les}"
+    )
+
+    inhoud = (
+        "De SportBit-applicatie kon de "
+        "verwachte les niet vinden.\n\n"
+        f"Inschrijving: {section}\n"
+        f"Datum: {datum}\n"
+        f"Tijd: {tijd}\n"
+        f"Les: {les}\n"
+    )
+
+    schrijf_log(
+        f"Les-ontbreekt-notificatie wordt "
+        f"verstuurd voor {section}.",
+        onderwerp="notificatie",
+    )
+
+    if _enabled():
+        instellingen = _mail_settings()
+
+        message = EmailMessage()
+
+        message["Subject"] = onderwerp
+        message["From"] = instellingen["from"]
+        message["To"] = instellingen["to"]
+
+        message.set_content(
+            inhoud
+        )
+
+        _smtp_send(
+            message
+        )
+
+    if _ntfy_enabled():
+        _ntfy_send(
+            onderwerp,
+            inhoud,
+        )
+
+    schrijf_log(
+        f"Les-ontbreekt-notificatie succesvol "
+        f"verstuurd voor {section}.",
+        onderwerp="notificatie",
+    )
+
+
+def notify_inschrijving_mislukt(
+    section,
+    fout,
+    log="",
+):
+    """Meld dat een automatische inschrijving mislukt is."""
+
+    if not _enabled() and not _ntfy_enabled():
+        return
+
+    onderwerp = (
+        f"SportBit inschrijving mislukt: {section}"
+    )
+
+    inhoud = (
+        "Een SportBit-inschrijving is mislukt.\n\n"
+        f"Inschrijving: {section}\n"
+        f"Fout: {fout}\n"
+    )
+
+    if log:
+        inhoud += (
+            "\nLog:\n"
+            "----------------------------------------\n"
+            f"{log}\n"
+            "----------------------------------------\n"
+        )
+
+    schrijf_log(
+        f"Mislukte-inschrijving-notificatie "
+        f"wordt verstuurd voor {section}.",
+        onderwerp="notificatie",
+    )
+
+    if _enabled():
+        instellingen = _mail_settings()
+
+        message = EmailMessage()
+
+        message["Subject"] = onderwerp
+        message["From"] = instellingen["from"]
+        message["To"] = instellingen["to"]
+
+        message.set_content(
+            inhoud
+        )
+
+        _smtp_send(
+            message
+        )
+
+    if _ntfy_enabled():
+        _ntfy_send(
+            onderwerp,
+            inhoud,
+            prioriteit="high",
+        )
+
+    schrijf_log(
+        f"Mislukte-inschrijving-notificatie "
+        f"succesvol verstuurd voor {section}.",
+        onderwerp="notificatie",
+    )
+
+def notify_inschrijving_gelukt(
+    section,
+    datum,
+    les,
+    tijd,
+):
+    """Meld dat een inschrijving succesvol is uitgevoerd."""
+
+    onderwerp = (
+        f"SportBit inschrijving gelukt: {les}"
+    )
+
+    inhoud = (
+        "De SportBit-inschrijving is succesvol uitgevoerd.\n\n"
+        f"Inschrijving: {section}\n"
+        f"Datum: {datum}\n"
+        f"Tijd: {tijd}\n"
+        f"Les: {les}\n"
+    )
+
+    mail_versturen = (
+        _enabled()
+        and _success_mail_enabled()
+    )
+
+    ntfy_versturen = (
+        _ntfy_enabled()
+        and _ntfy_success_enabled()
+    )
+
+    if not mail_versturen and not ntfy_versturen:
+        return
+
+    schrijf_log(
+        f"Succesnotificatie wordt verstuurd voor {section}.",
+        onderwerp="notificatie",
+    )
+
+    if mail_versturen:
+
+        instellingen = _mail_settings()
+
+        message = EmailMessage()
+
+        message["Subject"] = onderwerp
+        message["From"] = instellingen["from"]
+        message["To"] = instellingen["to"]
+
+        message.set_content(
+            inhoud
+        )
+
+        _smtp_send(
+            message
+        )
+
+    if ntfy_versturen:
+
+        _ntfy_send(
+            onderwerp,
+            inhoud,
+            prioriteit="default",
+        )
+
+    schrijf_log(
+        f"Succesnotificatie succesvol verstuurd "
+        f"voor {section}.",
+        onderwerp="notificatie",
+    )

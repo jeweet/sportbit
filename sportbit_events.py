@@ -9,6 +9,7 @@ from sportbit_dates import (
     parse_tijd,
     volgende_twee_datums,
 )
+from sportbit_logging import schrijf_log
 from sportbit_state import (
     STATUS_CACHE_SECONDS,
     next_lessons_cache,
@@ -71,8 +72,15 @@ def extract_events(data):
 
             # Voor de zekerheid ook dieper zoeken.
             for item in value:
-                if isinstance(item, (dict, list)):
-                    doorzoek(item, diepte + 1)
+
+                if isinstance(
+                    item,
+                    (dict, list),
+                ):
+                    doorzoek(
+                        item,
+                        diepte + 1,
+                    )
 
             return
 
@@ -92,7 +100,11 @@ def extract_events(data):
         ):
 
             if key in value:
-                doorzoek(value[key], diepte + 1)
+
+                doorzoek(
+                    value[key],
+                    diepte + 1,
+                )
 
         # Daarna ook alle overige velden doorzoeken.
         for key, nested in value.items():
@@ -109,8 +121,15 @@ def extract_events(data):
             ):
                 continue
 
-            if isinstance(nested, (dict, list)):
-                doorzoek(nested, diepte + 1)
+            if isinstance(
+                nested,
+                (dict, list),
+            ):
+
+                doorzoek(
+                    nested,
+                    diepte + 1,
+                )
 
     doorzoek(data)
 
@@ -144,20 +163,22 @@ def zoek_event(
 
     tijd_obj = parse_tijd(tijd)
 
-    print(
+    schrijf_log(
         f"Events ophalen voor {datum} "
-        f"({les} om "
-        f"{tijd_obj.strftime('%H:%M')})..."
+        f"({les} om {tijd_obj.strftime('%H:%M')})",
+        onderwerp="sportbit",
     )
 
     response = session.get(
         sportbit_api.EVENTS_URL,
         params={
-            "datum": datum.isoformat()
+            "datum": datum.isoformat(),
         },
         headers={
             "Origin": sportbit_api.BASE_URL,
-            "Referer": f"{sportbit_api.BASE_URL}/web/nl/",
+            "Referer": (
+                f"{sportbit_api.BASE_URL}/web/nl/"
+            ),
         },
         timeout=15,
     )
@@ -180,8 +201,9 @@ def zoek_event(
             f"Type: {type(data).__name__}"
         )
 
-    print(
-        f"{len(events)} events ontvangen."
+    schrijf_log(
+        f"{len(events)} events ontvangen",
+        onderwerp="sportbit",
     )
 
     gewenste_les = (
@@ -199,7 +221,9 @@ def zoek_event(
             )
         ).strip()
 
-        start_string = event.get("start")
+        start_string = event.get(
+            "start"
+        )
 
         if not start_string:
             continue
@@ -225,7 +249,6 @@ def zoek_event(
     return None
 
 
-
 def beschikbare_lessen_op_dag_en_tijd(
     session,
     datum,
@@ -238,11 +261,13 @@ def beschikbare_lessen_op_dag_en_tijd(
     response = session.get(
         sportbit_api.EVENTS_URL,
         params={
-            "datum": datum.isoformat()
+            "datum": datum.isoformat(),
         },
         headers={
             "Origin": sportbit_api.BASE_URL,
-            "Referer": f"{sportbit_api.BASE_URL}/web/nl/",
+            "Referer": (
+                f"{sportbit_api.BASE_URL}/web/nl/"
+            ),
         },
         timeout=15,
     )
@@ -251,6 +276,7 @@ def beschikbare_lessen_op_dag_en_tijd(
 
     try:
         data = response.json()
+
     except ValueError:
         raise RuntimeError(
             "SportBit gaf geen geldige JSON terug."
@@ -270,10 +296,15 @@ def beschikbare_lessen_op_dag_en_tijd(
     for event in events:
 
         titel = str(
-            event.get("titel", "")
+            event.get(
+                "titel",
+                "",
+            )
         ).strip()
 
-        start_string = event.get("start")
+        start_string = event.get(
+            "start"
+        )
 
         if not titel or not start_string:
             continue
@@ -282,6 +313,7 @@ def beschikbare_lessen_op_dag_en_tijd(
             start = datetime.fromisoformat(
                 start_string
             )
+
         except (
             ValueError,
             TypeError,
@@ -292,11 +324,18 @@ def beschikbare_lessen_op_dag_en_tijd(
             start.hour == tijd_obj.hour
             and start.minute == tijd_obj.minute
         ):
+
             sleutel = titel.casefold()
 
             if sleutel not in geziene_titels:
-                geziene_titels.add(sleutel)
-                resultaten.append(titel)
+
+                geziene_titels.add(
+                    sleutel
+                )
+
+                resultaten.append(
+                    titel
+                )
 
     return sorted(
         resultaten,
@@ -304,15 +343,22 @@ def beschikbare_lessen_op_dag_en_tijd(
     )
 
 
-def beschikbare_lessen_op_dag(session, datum):
+def beschikbare_lessen_op_dag(
+    session,
+    datum,
+):
     """Geef alle beschikbare lessen per tijdstip voor een datum."""
 
     response = session.get(
         sportbit_api.EVENTS_URL,
-        params={"datum": datum.isoformat()},
+        params={
+            "datum": datum.isoformat(),
+        },
         headers={
             "Origin": sportbit_api.BASE_URL,
-            "Referer": f"{sportbit_api.BASE_URL}/web/nl/",
+            "Referer": (
+                f"{sportbit_api.BASE_URL}/web/nl/"
+            ),
         },
         timeout=15,
     )
@@ -321,6 +367,7 @@ def beschikbare_lessen_op_dag(session, datum):
 
     try:
         data = response.json()
+
     except ValueError as exc:
         raise RuntimeError(
             "SportBit gaf geen geldige JSON terug."
@@ -330,48 +377,68 @@ def beschikbare_lessen_op_dag(session, datum):
 
     if events is None:
         raise RuntimeError(
-            f"Onverwachte events-response. "
+            "Onverwachte events-response. "
             f"Type: {type(data).__name__}"
         )
 
     resultaat = {}
 
     for event in events:
+
         titel = str(
-            event.get("titel", "")
+            event.get(
+                "titel",
+                "",
+            )
         ).strip()
 
-        start_string = event.get("start")
+        start_string = event.get(
+            "start"
+        )
 
         if not titel or not start_string:
             continue
 
         try:
-            start = datetime.fromisoformat(start_string)
-        except (ValueError, TypeError):
+            start = datetime.fromisoformat(
+                start_string
+            )
+
+        except (
+            ValueError,
+            TypeError,
+        ):
             continue
 
-        tijd = start.strftime("%H:%M")
+        tijd = start.strftime(
+            "%H:%M"
+        )
 
-        resultaat.setdefault(tijd, [])
+        resultaat.setdefault(
+            tijd,
+            [],
+        )
 
         if not any(
             bestaande.casefold() == titel.casefold()
             for bestaande in resultaat[tijd]
         ):
-            resultaat[tijd].append(titel)
+
+            resultaat[tijd].append(
+                titel
+            )
 
     for tijd in resultaat:
+
         resultaat[tijd].sort(
             key=str.casefold
         )
 
     return dict(
-        sorted(resultaat.items())
+        sorted(
+            resultaat.items()
+        )
     )
-
-
-
 
 
 def maak_status(
@@ -397,7 +464,10 @@ def maak_status(
     }
 
 
-def bepaal_event_status(event, datum):
+def bepaal_event_status(
+    event,
+    datum,
+):
     """Bepaal de zichtbare status van één event."""
 
     if event is None:
@@ -409,21 +479,30 @@ def bepaal_event_status(event, datum):
     # SportBit kan iemand op de wachtlijst zowel als
     # 'aangemeld' als 'opWachtlijst' teruggeven.
     # De wachtlijst heeft dan voorrang.
-    if event.get("opWachtlijst"):
+    if event.get(
+        "opWachtlijst"
+    ):
+
         return maak_status(
             "wachtlijst",
             "WACHTLIJST",
             event,
         )
 
-    if event.get("aangemeld"):
+    if event.get(
+        "aangemeld"
+    ):
+
         return maak_status(
             "ingeschreven",
             "INGESCHREVEN",
             event,
         )
 
-    if not inschrijving_open(datum):
+    if not inschrijving_open(
+        datum
+    ):
+
         return maak_status(
             "gesloten",
             "INSCHRIJVING GESLOTEN",
@@ -437,14 +516,18 @@ def bepaal_event_status(event, datum):
     )
 
 
-def automatische_volgende_twee_controle(section):
+def automatische_volgende_twee_controle(
+    section,
+):
     """
     Controleer de twee eerstvolgende lessen.
 
     Resultaten worden maximaal vijf minuten gecachet.
     """
 
-    bestaande = next_lessons_cache.get(section)
+    bestaande = next_lessons_cache.get(
+        section
+    )
 
     if bestaande:
 
@@ -462,6 +545,7 @@ def automatische_volgende_twee_controle(section):
             )
 
             if leeftijd < STATUS_CACHE_SECONDS:
+
                 return bestaande.get(
                     "lessen",
                     [],
@@ -505,9 +589,13 @@ def automatische_volgende_twee_controle(section):
 
         with run_lock:
 
-            session = sportbit_api.create_session()
+            session = (
+                sportbit_api.create_session()
+            )
 
-            sportbit_api.login(session)
+            sportbit_api.login(
+                session
+            )
 
             for doel in datums:
 
@@ -531,8 +619,14 @@ def automatische_volgende_twee_controle(section):
 
     except Exception:
 
-        if bestaande and bestaande.get("lessen"):
-            return bestaande["lessen"]
+        if (
+            bestaande
+            and bestaande.get("lessen")
+        ):
+
+            return bestaande[
+                "lessen"
+            ]
 
         onbekend = {
             "code": "onbekend",
@@ -542,10 +636,6 @@ def automatische_volgende_twee_controle(section):
             "checked_at": None,
             "checked_at_ts": None,
         }
-
-        # Bug uit de originele versie opgelost:
-        # hier werd 'datum' gebruikt terwijl die variabele
-        # niet bestond. We gebruiken nu 'doel'.
 
         return [
             {
@@ -560,12 +650,21 @@ def automatische_volgende_twee_controle(section):
         sportbit_api.TIMEZONE
     ).timestamp()
 
-    next_lessons_cache[section] = {
+    next_lessons_cache[
+        section
+    ] = {
         "lessen": resultaten,
         "checked_at_ts": now_ts,
     }
 
     if resultaten:
-        statuses[section] = resultaten[0]["status"]
+
+        statuses[
+            section
+        ] = resultaten[
+            0
+        ][
+            "status"
+        ]
 
     return resultaten

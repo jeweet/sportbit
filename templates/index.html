@@ -17,6 +17,10 @@
         class="card card-{{ item.les|lower|replace(' ', '-') }} mobile-collapsed"
     >
 
+        <!-- ====================================================
+             KAART HEADER
+             ==================================================== -->
+
         <div
             class="card-header mobile-collapse-toggle"
             role="button"
@@ -39,6 +43,9 @@
             >▾</span>
         </div>
 
+        <!-- ====================================================
+             EERSTVOLGENDE LESSEN
+             ==================================================== -->
 
         <div class="next-lessons">
 
@@ -51,6 +58,7 @@
             <div class="next-lesson">
 
                 <div>
+
                     <div class="next-lesson-date">
 
                         {% set dagen_namen = [
@@ -67,7 +75,6 @@
                         {{ les.datum.strftime("%d-%m · %H:%M") }}
 
                     </div>
-
 
                     {% if les.event %}
 
@@ -96,7 +103,6 @@
 
                         {% endif %}
 
-
                         {% if les.event.get('buddyAangemeld') %}
 
                         &nbsp;·&nbsp;
@@ -108,8 +114,15 @@
                             aria-label="Buddy aangemeld"
                             title="Buddy aangemeld"
                         >
-                            <circle cx="12" cy="7" r="4"/>
-                            <path d="M4 21c0-4.42 3.58-8 8-8s8 3.58 8 8H4z"/>
+                            <circle
+                                cx="12"
+                                cy="7"
+                                r="4"
+                            />
+
+                            <path
+                                d="M4 21c0-4.42 3.58-8 8-8s8 3.58 8 8H4z"
+                            />
                         </svg>
 
                         {% endif %}
@@ -120,13 +133,15 @@
 
                 </div>
 
+                <!-- ==================================================
+                     STATUS EN UITSCHRIJVEN
+                     ================================================== -->
 
                 <div class="next-lesson-status">
 
                     <span class="status status-{{ les.status.css }}">
                         {{ les.status.text }}
                     </span>
-
 
                     {% if les.status.code in [
                         "ingeschreven",
@@ -171,6 +186,9 @@
 
         </div>
 
+        <!-- ====================================================
+             ACTIES
+             ==================================================== -->
 
         <div class="actions">
 
@@ -203,7 +221,6 @@
 
             {% endif %}
 
-
             <a
                 href="{{
                     url_for(
@@ -215,7 +232,6 @@
             >
                 Bewerken
             </a>
-
 
             <form
                 method="post"
@@ -250,8 +266,11 @@
 
 </div>
 
-
 {% else %}
+
+<!-- ============================================================
+     GEEN INSCHRIJVINGEN
+     ============================================================ -->
 
 <section class="card empty">
 

@@ -20,6 +20,8 @@ from zoneinfo import ZoneInfo
 
 import requests
 
+from sportbit_logging import schrijf_log
+
 
 BASE_URL = "https://cfgp.sportbitapp.nl"
 
@@ -67,7 +69,10 @@ def login(session):
     # 1. Loginpagina openen
     # ---------------------------------------------------------
 
-    print("Loginpagina ophalen...")
+    schrijf_log(
+        "Loginpagina ophalen...",
+        onderwerp="sportbit",
+    )
 
     response = session.get(
         LOGIN_PAGE,
@@ -80,7 +85,10 @@ def login(session):
     # 2. Heartbeat
     # ---------------------------------------------------------
 
-    print("Heartbeat uitvoeren...")
+    schrijf_log(
+        "Heartbeat uitvoeren...",
+        onderwerp="sportbit",
+    )
 
     response = session.get(
         HEARTBEAT_URL,
@@ -103,13 +111,19 @@ def login(session):
             "Heartbeat heeft geen XSRF-TOKEN opgeleverd."
         )
 
-    print("XSRF-token ontvangen.")
+    schrijf_log(
+        "XSRF-token ontvangen.",
+        onderwerp="sportbit",
+    )
 
     # ---------------------------------------------------------
     # 3. Inloggen
     # ---------------------------------------------------------
 
-    print("Inloggen...")
+    schrijf_log(
+        "Inloggen...",
+        onderwerp="sportbit",
+    )
 
     response = session.post(
         LOGIN_URL,
@@ -127,13 +141,17 @@ def login(session):
     )
 
     if response.status_code != 200:
-        print(
-            f"Login mislukt: HTTP {response.status_code}"
+        schrijf_log(
+            f"Login mislukt: HTTP {response.status_code}",
+            niveau="error",
+            onderwerp="sportbit",
         )
-        print(response.text[:1000])
         response.raise_for_status()
 
-    print("Login geslaagd.")
+    schrijf_log(
+        "Login geslaagd.",
+        onderwerp="sportbit",
+    )
 
 
 def inschrijven(session, event):
@@ -154,10 +172,10 @@ def inschrijven(session, event):
             "Geen XSRF-TOKEN aanwezig vóór deelname-POST."
         )
 
-    print()
-    print(
+    schrijf_log(
         f"Inschrijven voor '{event.get('titel')}' "
-        f"(ID {event_id})..."
+        f"(ID {event_id})...",
+        onderwerp="sportbit",
     )
 
     response = session.post(
@@ -173,19 +191,24 @@ def inschrijven(session, event):
     )
 
     if response.status_code == 204:
-        print("Succesvol ingeschreven!")
+        schrijf_log(
+            "Succesvol ingeschreven!",
+            onderwerp="sportbit",
+        )
         return True
 
     if response.status_code == 200:
-        print("Inschrijving geaccepteerd (HTTP 200).")
+        schrijf_log(
+            "Inschrijving geaccepteerd (HTTP 200).",
+            onderwerp="sportbit",
+        )
         return True
 
-    print(
-        f"Inschrijving mislukt: HTTP {response.status_code}"
+    schrijf_log(
+        f"Inschrijving mislukt: HTTP {response.status_code}",
+        niveau="error",
+        onderwerp="sportbit",
     )
-
-    if response.text:
-        print(response.text[:1000])
 
     return False
 
@@ -208,10 +231,10 @@ def uitschrijven(session, event):
             "Geen XSRF-TOKEN aanwezig vóór uitschrijf-DELETE."
         )
 
-    print()
-    print(
+    schrijf_log(
         f"Uitschrijven voor '{event.get('titel')}' "
-        f"(ID {event_id})..."
+        f"(ID {event_id})...",
+        onderwerp="sportbit",
     )
 
     response = session.delete(
@@ -226,18 +249,23 @@ def uitschrijven(session, event):
     )
 
     if response.status_code == 204:
-        print("Succesvol uitgeschreven!")
+        schrijf_log(
+            "Succesvol uitgeschreven!",
+            onderwerp="sportbit",
+        )
         return True
 
     if response.status_code == 200:
-        print("Uitschrijving geaccepteerd (HTTP 200).")
+        schrijf_log(
+            "Uitschrijving geaccepteerd (HTTP 200).",
+            onderwerp="sportbit",
+        )
         return True
 
-    print(
-        f"Uitschrijven mislukt: HTTP {response.status_code}"
+    schrijf_log(
+        f"Uitschrijven mislukt: HTTP {response.status_code}",
+        niveau="error",
+        onderwerp="sportbit",
     )
-
-    if response.text:
-        print(response.text[:1000])
 
     return False

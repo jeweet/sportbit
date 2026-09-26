@@ -3,68 +3,89 @@
 {% block content %}
 
 <div class="login-page">
-<section class="card login-card">
 
-    <div class="login-logo">
-        <img
-            src="{{ logo }}"
-            alt="CrossFit Go Personal"
-        >
-    </div>
+    <section class="card login-card">
 
-    <div class="page-title login-title">
-        <h1>Inloggen</h1>
+        <!-- ====================================================
+             LOGO
+             ==================================================== -->
 
-        <p>
-            Automatische inschrijving
-        </p>
-    </div>
-
-    <form method="post">
-
-        <input
-            type="hidden"
-            name="csrf_token"
-            value="{{ csrf_token() }}"
-        >
-
-        <label for="username">
-            Gebruikersnaam
-        </label>
-
-        <input
-            id="username"
-            name="username"
-            type="text"
-            autocomplete="username"
-            required
-            autofocus
-        >
-
-        <label for="password">
-            Wachtwoord
-        </label>
-
-        <input
-            id="password"
-            name="password"
-            type="password"
-            autocomplete="current-password"
-            required
-        >
-
-        <div class="form-actions">
-            <button
-                type="submit"
-                class="button button-primary"
+        <div class="login-logo">
+            <img
+                src="{{ logo }}"
+                alt="CrossFit Go Personal"
             >
-                Inloggen
-            </button>
         </div>
 
-    </form>
+        <!-- ====================================================
+             TITEL
+             ==================================================== -->
 
-</section>
+        <div class="page-title login-title">
+
+            <h1>Inloggen</h1>
+
+            <p>
+                Automatische inschrijving
+            </p>
+
+        </div>
+
+        <!-- ====================================================
+             LOGIN FORMULIER
+             ==================================================== -->
+
+        <form method="post">
+
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token() }}"
+            >
+
+            <label for="username">
+                Gebruikersnaam
+            </label>
+
+            <input
+                id="username"
+                name="username"
+                type="text"
+                autocomplete="username"
+                required
+                autofocus
+            >
+
+            <label for="password">
+                Wachtwoord
+            </label>
+
+            <input
+                id="password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                required
+            >
+
+            <!-- ================================================
+                 ACTIES
+                 ================================================ -->
+
+            <div class="form-actions">
+
+                <button
+                    type="submit"
+                    class="button button-primary"
+                >
+                    Inloggen
+                </button>
+
+            </div>
+
+        </form>
+
+    </section>
 
 </div>
 

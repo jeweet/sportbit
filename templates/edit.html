@@ -12,14 +12,21 @@
     </h1>
 
     <p>
-        Kies een dag en selecteer vervolgens de gewenste les voor automatisch inschrijven.
+        Kies een dag en selecteer vervolgens de gewenste les
+        voor automatisch inschrijven.
     </p>
 </div>
 
+<!-- ============================================================
+     LES FORMULIER
+     ============================================================ -->
 
 <section class="card form-card">
 
-    <form method="post" id="lesson-form">
+    <form
+        method="post"
+        id="lesson-form"
+    >
 
         <input
             type="hidden"
@@ -27,8 +34,9 @@
             value="{{ csrf_token() }}"
         >
 
-
-        <!-- DAG -->
+        <!-- ======================================================
+             DAG
+             ====================================================== -->
 
         <label for="dag">
             Dag
@@ -39,27 +47,20 @@
             name="dag"
             required
         >
-
             {% for dag in dagen %}
-
                 <option
                     value="{{ dag }}"
-                    {% if item.dag == dag %}
-                        selected
-                    {% endif %}
+                    {% if item.dag == dag %}selected{% endif %}
                 >
                     {{ dag|capitalize }}
                 </option>
-
             {% endfor %}
-
         </select>
 
-
-        <!--
-            Deze waarden worden door sportbit.js
-            gevuld wanneer een les wordt geselecteerd.
-        -->
+        <!-- ======================================================
+             GESELECTEERDE LES
+             Wordt door sportbit.js gevuld.
+             ====================================================== -->
 
         <input
             type="hidden"
@@ -75,8 +76,9 @@
             value="{{ item.les|default('', true) }}"
         >
 
-
-        <!-- LES -->
+        <!-- ======================================================
+             LES
+             ====================================================== -->
 
         <label class="form-label">
             Les
@@ -92,10 +94,20 @@
                 Lessen laden...
             </p>
         </div>
-        <!-- STATUS --> 
-        <p id="lessen-status" class="form-help" aria-live="polite" ></p>
 
-        <!-- ACTIES -->
+        <!-- ======================================================
+             STATUS
+             ====================================================== -->
+
+        <p
+            id="lessen-status"
+            class="form-help"
+            aria-live="polite"
+        ></p>
+
+        <!-- ======================================================
+             ACTIES
+             ====================================================== -->
 
         <div class="form-actions">
 

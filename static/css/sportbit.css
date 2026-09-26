@@ -42,6 +42,7 @@ body {
         ),
         var(--black);
     background-attachment: fixed;
+
     color: var(--white);
 
     font-family:

@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from notify import send_test_ntfy
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from dotenv import dotenv_values, load_dotenv
 from flask import (
@@ -264,6 +265,9 @@ def sla_instellingen_op():
                 raise ValueError(
                     "Ongeldige scheduler-tijdzone."
                 )
+
+        if naam == "WEB_PASSWORD":
+            waarde = generate_password_hash(waarde)
 
         waarden[naam] = waarde
 
@@ -581,6 +585,7 @@ def controleer_csrf():
 # LOGIN
 # ============================================================
 
+
 @app.route(
     "/login",
     methods=[
@@ -609,16 +614,27 @@ def login():
             get_web_credentials()
         )
 
-        if (
-            secrets.compare_digest(
+        # Controleer gebruikersnaam en gehasht wachtwoord
+        username_ok = (
+            bool(web_username)
+            and secrets.compare_digest(
                 username,
                 web_username,
             )
-            and secrets.compare_digest(
-                password,
-                web_password,
-            )
-        ):
+        )
+
+        password_ok = False
+
+        if web_password and password:
+            try:
+                password_ok = check_password_hash(
+                    web_password,
+                    password,
+                )
+            except (ValueError, TypeError):
+                password_ok = False
+
+        if username_ok and password_ok:
 
             session[
                 "web_logged_in"
@@ -654,7 +670,6 @@ def login():
             filename="images/logo.svg",
         ),
     )
-
 
 @app.route(
     "/logout",
@@ -2195,3 +2210,41 @@ if __name__ == "__main__":
         port=5000,
         debug=False,
     )
+
+
+
+def voer_scheduler_bij_start_uit():
+    schrijf_log(
+        "Eenmalige scheduler-run bij app-start."
+    )
+
+    try:
+        try:
+            _, _, timezone_naam = scheduler_instellingen()
+            timezone = ZoneInfo(timezone_naam)
+            nu = datetime.now(timezone)
+        except Exception:
+            nu = datetime.now()
+
+        with _scheduler_status_lock:
+            _scheduler_status["laatste_run"] = nu
+            _scheduler_status["laatste_resultaat"] = "Bezig..."
+            _scheduler_status["fout"] = None
+
+        voer_automatische_inschrijvingen_uit()
+
+        with _scheduler_status_lock:
+            _scheduler_status["laatste_resultaat"] = (
+                "Controle afgerond"
+            )
+            _scheduler_status["fout"] = None
+
+    except Exception as error:
+        with _scheduler_status_lock:
+            _scheduler_status["laatste_resultaat"] = "Mislukt"
+            _scheduler_status["fout"] = str(error)
+
+        schrijf_log(
+            f"Fout bij scheduler-start: {error}",
+            "exception",
+        )

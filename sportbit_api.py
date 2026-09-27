@@ -153,6 +153,8 @@ def login(session):
         onderwerp="sportbit",
     )
 
+    return True
+
 
 def inschrijven(session, event):
     """Schrijf de gebruiker in voor het event."""

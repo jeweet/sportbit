@@ -7,6 +7,7 @@
     <p>Login, account, inschrijving en notificaties</p>
 </div>
 
+
 <!-- ============================================================
      INSTELLINGEN
      ============================================================ -->
@@ -19,6 +20,7 @@
     >
 
     <section class="card settings-card">
+
 
         <!-- ======================================================
              LOGIN
@@ -52,7 +54,6 @@
                 id="WEB_PASSWORD"
                 name="WEB_PASSWORD"
                 type="password"
-                value=""
                 placeholder="{{ settings.WEB_PASSWORD_PLACEHOLDER }}"
                 autocomplete="new-password"
             >
@@ -62,12 +63,13 @@
             </p>
         </div>
 
+
         <!-- ======================================================
              CROSSFIT GO PERSONAL ACCOUNT
              ====================================================== -->
 
         <div class="settings-section">
-            <h2>Crossfit Go Personal account</h2>
+            <h2>Crossfit Go Personal</h2>
 
             <p class="settings-description">
                 Inloggegevens voor SportBit van Crossfit Go Personal.
@@ -93,7 +95,6 @@
                 id="SPORTBIT_PASSWORD"
                 name="SPORTBIT_PASSWORD"
                 type="password"
-                value=""
                 placeholder="{{ settings.SPORTBIT_PASSWORD_PLACEHOLDER }}"
                 autocomplete="new-password"
             >
@@ -102,6 +103,7 @@
                 Laat leeg om het huidige wachtwoord te behouden.
             </p>
         </div>
+
 
         <!-- ======================================================
              SCHEDULER
@@ -125,18 +127,23 @@
             >
                 <option
                     value="true"
-                    {% if settings.SPORTBIT_SCHEDULER_ENABLED == "true" %}selected{% endif %}
+                    {% if settings.SPORTBIT_SCHEDULER_ENABLED == "true" %}
+                        selected
+                    {% endif %}
                 >
                     Ingeschakeld
                 </option>
 
                 <option
                     value="false"
-                    {% if settings.SPORTBIT_SCHEDULER_ENABLED == "false" %}selected{% endif %}
+                    {% if settings.SPORTBIT_SCHEDULER_ENABLED == "false" %}
+                        selected
+                    {% endif %}
                 >
                     Uitgeschakeld
                 </option>
             </select>
+
 
             <label for="SPORTBIT_SCHEDULER_TIME">
                 Controle uitvoeren om
@@ -178,6 +185,7 @@
                 welke automatische inschrijvingen uitgevoerd moeten worden.
             </p>
 
+
             <label for="SPORTBIT_SCHEDULER_TIMEZONE">
                 Tijdzone
             </label>
@@ -188,19 +196,57 @@
             >
                 <option
                     value="Europe/Amsterdam"
-                    {% if settings.SPORTBIT_SCHEDULER_TIMEZONE == "Europe/Amsterdam" %}selected{% endif %}
+                    {% if settings.SPORTBIT_SCHEDULER_TIMEZONE == "Europe/Amsterdam" %}
+                        selected
+                    {% endif %}
                 >
                     Europe/Amsterdam
                 </option>
 
                 <option
                     value="UTC"
-                    {% if settings.SPORTBIT_SCHEDULER_TIMEZONE == "UTC" %}selected{% endif %}
+                    {% if settings.SPORTBIT_SCHEDULER_TIMEZONE == "UTC" %}
+                        selected
+                    {% endif %}
                 >
                     UTC
                 </option>
             </select>
         </div>
+        <!-- ======================================================
+             AGENDA
+             ====================================================== -->
+
+        <div class="settings-section">
+            <h2>Agenda</h2>
+
+            <p class="settings-description">
+                Voeg je SportBit-lessen toe aan je eigen agenda via
+                deze persoonlijke kalenderlink. De feed plant
+                ongeveer 6 maanden vooruit. Lessen die nog niet
+                beschikbaar zijn in SportBit, worden voorlopig
+                ingepland.
+            </p>
+
+            <label for="SPORTBIT_CALENDAR_URL">
+                Persoonlijke agenda-link
+            </label>
+
+            <input
+                id="SPORTBIT_CALENDAR_URL"
+                type="text"
+                value="{{ request.url_root.rstrip('/') }}{{ url_for('calendar_feed', token=calendar_token) }}"
+                readonly
+                onclick="this.select()"
+            >
+
+            <p class="hint">
+                Kopieer de link en voeg deze toe als
+                internetagenda in je agenda-app.
+                Behandel de link als een wachtwoord.
+            </p>
+        </div>
+
 
         <!-- ======================================================
              E-MAILNOTIFICATIES
@@ -223,18 +269,23 @@
             >
                 <option
                     value="true"
-                    {% if settings.NOTIFY_ENABLED == "true" %}selected{% endif %}
+                    {% if settings.NOTIFY_ENABLED == "true" %}
+                        selected
+                    {% endif %}
                 >
                     Ingeschakeld
                 </option>
 
                 <option
                     value="false"
-                    {% if settings.NOTIFY_ENABLED == "false" %}selected{% endif %}
+                    {% if settings.NOTIFY_ENABLED == "false" %}
+                        selected
+                    {% endif %}
                 >
                     Uitgeschakeld
                 </option>
             </select>
+
 
             <label for="NOTIFY_EMAIL_TO">
                 E-mailadres ontvanger
@@ -248,6 +299,7 @@
                 placeholder="naam@example.com"
             >
 
+
             <label for="NOTIFY_SUCCESS_ENABLED">
                 Succesvolle inschrijving melden
             </label>
@@ -258,19 +310,24 @@
             >
                 <option
                     value="true"
-                    {% if settings.NOTIFY_SUCCESS_ENABLED == "true" %}selected{% endif %}
+                    {% if settings.NOTIFY_SUCCESS_ENABLED == "true" %}
+                        selected
+                    {% endif %}
                 >
                     Ingeschakeld
                 </option>
 
                 <option
                     value="false"
-                    {% if settings.NOTIFY_SUCCESS_ENABLED == "false" %}selected{% endif %}
+                    {% if settings.NOTIFY_SUCCESS_ENABLED == "false" %}
+                        selected
+                    {% endif %}
                 >
                     Uitgeschakeld
                 </option>
             </select>
         </div>
+
 
         <!-- ======================================================
              NTFY
@@ -293,18 +350,23 @@
             >
                 <option
                     value="true"
-                    {% if settings.NTFY_ENABLED == "true" %}selected{% endif %}
+                    {% if settings.NTFY_ENABLED == "true" %}
+                        selected
+                    {% endif %}
                 >
                     Ingeschakeld
                 </option>
 
                 <option
                     value="false"
-                    {% if settings.NTFY_ENABLED == "false" %}selected{% endif %}
+                    {% if settings.NTFY_ENABLED == "false" %}
+                        selected
+                    {% endif %}
                 >
                     Uitgeschakeld
                 </option>
             </select>
+
 
             <label for="NTFY_URL">
                 ntfy-server
@@ -318,6 +380,7 @@
                 placeholder="https://ntfy.example.com"
             >
 
+
             <label for="NTFY_TOPIC">
                 ntfy-topic
             </label>
@@ -330,6 +393,7 @@
                 placeholder="sportbit"
             >
 
+
             <label for="NTFY_TOKEN">
                 ntfy-token
             </label>
@@ -338,7 +402,6 @@
                 id="NTFY_TOKEN"
                 name="NTFY_TOKEN"
                 type="password"
-                value=""
                 placeholder="{{ settings.NTFY_TOKEN_PLACEHOLDER }}"
                 autocomplete="new-password"
             >
@@ -346,6 +409,7 @@
             <p class="hint">
                 Laat leeg om het huidige token te behouden.
             </p>
+
 
             <label for="NTFY_NOTIFY_SUCCESS">
                 Succesvolle inschrijving melden
@@ -357,20 +421,23 @@
             >
                 <option
                     value="true"
-                    {% if settings.NTFY_NOTIFY_SUCCESS == "true" %}selected{% endif %}
+                    {% if settings.NTFY_NOTIFY_SUCCESS == "true" %}
+                        selected
+                    {% endif %}
                 >
                     Ingeschakeld
                 </option>
 
                 <option
                     value="false"
-                    {% if settings.NTFY_NOTIFY_SUCCESS == "false" %}selected{% endif %}
+                    {% if settings.NTFY_NOTIFY_SUCCESS == "false" %}
+                        selected
+                    {% endif %}
                 >
                     Uitgeschakeld
                 </option>
             </select>
         </div>
-
         <!-- ======================================================
              SMTP
              ====================================================== -->
@@ -394,6 +461,7 @@
                 placeholder="smtp.example.com"
             >
 
+
             <label for="SMTP_PORT">
                 SMTP-poort
             </label>
@@ -407,6 +475,7 @@
                 max="65535"
             >
 
+
             <label for="SMTP_USERNAME">
                 SMTP-gebruikersnaam
             </label>
@@ -419,6 +488,7 @@
                 autocomplete="username"
             >
 
+
             <label for="SMTP_PASSWORD">
                 SMTP-wachtwoord
             </label>
@@ -427,7 +497,6 @@
                 id="SMTP_PASSWORD"
                 name="SMTP_PASSWORD"
                 type="password"
-                value=""
                 placeholder="{{ settings.SMTP_PASSWORD_PLACEHOLDER }}"
                 autocomplete="new-password"
             >
@@ -435,6 +504,7 @@
             <p class="hint">
                 Laat leeg om het huidige wachtwoord te behouden.
             </p>
+
 
             <label for="SMTP_USE_TLS">
                 TLS-beveiliging
@@ -446,18 +516,23 @@
             >
                 <option
                     value="true"
-                    {% if settings.SMTP_USE_TLS == "true" %}selected{% endif %}
+                    {% if settings.SMTP_USE_TLS == "true" %}
+                        selected
+                    {% endif %}
                 >
                     Ingeschakeld
                 </option>
 
                 <option
                     value="false"
-                    {% if settings.SMTP_USE_TLS == "false" %}selected{% endif %}
+                    {% if settings.SMTP_USE_TLS == "false" %}
+                        selected
+                    {% endif %}
                 >
                     Uitgeschakeld
                 </option>
             </select>
+
 
             <label for="NOTIFY_FROM">
                 Afzender e-mail
@@ -471,6 +546,7 @@
                 placeholder="sportbit@example.com"
             >
         </div>
+
 
         <!-- ======================================================
              OPSLAAN
@@ -494,6 +570,7 @@
 
     </section>
 </form>
+
 
 <!-- ============================================================
      TEST MAIL
@@ -531,6 +608,7 @@
 
     </div>
 </section>
+
 
 <!-- ============================================================
      TEST NTFY
@@ -570,3 +648,4 @@
 </section>
 
 {% endblock %}
+

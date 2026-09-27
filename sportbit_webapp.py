@@ -7,15 +7,18 @@ import secrets
 import importlib
 import threading
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from notify import send_test_ntfy
+from calendar import monthrange
+from dotenv import set_key
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from dotenv import dotenv_values, load_dotenv
 from flask import (
     Flask,
+    Response,
     abort,
     flash,
     redirect,
@@ -71,6 +74,7 @@ ENV_SETTINGS = (
     "SPORTBIT_SCHEDULER_ENABLED",
     "SPORTBIT_SCHEDULER_TIME",
     "SPORTBIT_SCHEDULER_TIMEZONE",
+    "SPORTBIT_CALENDAR_TOKEN",
 )
 
 
@@ -79,6 +83,8 @@ SENSITIVE_ENV_SETTINGS = {
     "SMTP_PASSWORD",
     "WEB_PASSWORD",
     "NTFY_TOKEN",
+    "SPORTBIT_CALENDAR_TOKEN",
+
 }
 
 
@@ -133,6 +139,36 @@ def get_of_maak_secret_key():
     )
 
     return nieuwe_sleutel
+
+
+def zorg_voor_calendar_token():
+    """Genereer en bewaar een agenda-token als die ontbreekt of leeg is."""
+
+    token = os.getenv(
+        "SPORTBIT_CALENDAR_TOKEN",
+        "",
+    ).strip()
+
+    if token:
+        return token
+
+    token = secrets.token_urlsafe(32)
+
+    # Maak de variabele aan of vul de lege waarde in .env
+    set_key(
+        str(ENV_FILE),
+        "SPORTBIT_CALENDAR_TOKEN",
+        token,
+    )
+
+    # Meteen beschikbaar maken voor de huidige app-run
+    os.environ["SPORTBIT_CALENDAR_TOKEN"] = token
+
+    schrijf_log(
+        "Agenda-token aangemaakt en opgeslagen in .env."
+    )
+
+    return token
 
 
 def lees_instellingen():
@@ -312,6 +348,7 @@ def sla_instellingen_op():
         ENV_FILE,
         override=True,
     )
+    calendar_token = zorg_voor_calendar_token()
 
     import sportbit_api
     import notify
@@ -322,6 +359,10 @@ def sla_instellingen_op():
 
     importlib.reload(
         notify
+    )
+
+    importlib.reload(
+        sportbit_calendar
     )
 
     app.secret_key = (
@@ -351,9 +392,12 @@ from sportbit_events import (
     automatische_volgende_twee_controle,
     beschikbare_lessen_op_dag_en_tijd,
     beschikbare_lessen_op_dag,
+    volgende_twee_datums,
+    zoek_event,
 )
 
 import sportbit_api
+import sportbit_calendar
 
 from sportbit_registration import (
     voer_inschrijving_uit,
@@ -486,6 +530,7 @@ def controleer_login():
     if request.endpoint in {
         "login",
         "static",
+        "calendar_feed",
     }:
 
         return
@@ -1462,9 +1507,12 @@ def instellingen():
             url_for("instellingen")
         )
 
+    calendar_token = zorg_voor_calendar_token()
+
     return render_template(
         "settings.html",
         settings=lees_instellingen(),
+        calendar_token=calendar_token,
     )
 
 @app.post("/scheduler/nu-uitvoeren")
@@ -1520,6 +1568,227 @@ def documentatie():
     return render_template(
         "documentation.html"
     )
+
+
+# ============================================================
+# AGENDA-FEED
+# ============================================================
+
+def datums_komende_zes_maanden(dag, tijd):
+    """Geef de wekelijkse lesmomenten tot zes maanden vooruit."""
+
+    eerste = volgende_datum(dag, tijd)
+
+    if eerste is None:
+        return []
+
+    vandaag = eerste.date()
+    maand = vandaag.month + 6
+    jaar = vandaag.year + (maand - 1) // 12
+    maand = (maand - 1) % 12 + 1
+
+    laatste_dag = monthrange(jaar, maand)[1]
+    einddatum = vandaag.replace(
+        year=jaar,
+        month=maand,
+        day=min(vandaag.day, laatste_dag),
+    )
+
+    datums = []
+    doel = eerste
+
+    while doel.date() <= einddatum:
+        datums.append(doel)
+        doel += timedelta(days=7)
+
+    return datums
+
+
+
+@app.route("/agenda/<token>.ics")
+def calendar_feed(token):
+
+    ingesteld_token = zorg_voor_calendar_token()
+
+    if (
+        not ingesteld_token
+        or not secrets.compare_digest(
+            token,
+            ingesteld_token,
+        )
+    ):
+        abort(404)
+
+    config = lees_config_parser()
+
+    try:
+        session = sportbit_api.create_session()
+
+        if not sportbit_api.login(session):
+            return Response(
+                "SportBit-login mislukt",
+                status=502,
+                mimetype="text/plain",
+            )
+
+        events = []
+
+        for section in config.sections():
+
+            if not section.startswith("inschrijving_"):
+                continue
+
+            try:
+                dag = config.get(
+                    section,
+                    "dag",
+                ).strip().lower()
+
+                tijd = parse_tijd(
+                    config.get(
+                        section,
+                        "tijd",
+                    ).strip()
+                )
+
+                les = config.get(
+                    section,
+                    "les",
+                ).strip()
+
+                datums = datums_komende_zes_maanden(
+                    dag,
+                    tijd,
+                )
+
+                # ---------------------------------------------
+                # Tellers voor deze inschrijving
+                # ---------------------------------------------
+
+                stats = {
+                    "gepland": len(datums),
+                    "gevonden": 0,
+                    "voorlopig": 0,
+                    "aangemeld": 0,
+                    "wachtlijst": 0,
+                }
+
+                for doel in datums:
+
+                    event = zoek_event(
+                        session,
+                        datum=doel.date(),
+                        les=les,
+                        tijd=tijd,
+                    )
+
+                    if event:
+                        stats["gevonden"] += 1
+
+                        aangemeld = bool(
+                            event.get("aangemeld")
+                        )
+
+                        wachtlijst = bool(
+                            event.get("opWachtlijst")
+                        )
+
+                        if aangemeld:
+                            stats["aangemeld"] += 1
+
+                        if wachtlijst:
+                            stats["wachtlijst"] += 1
+
+                        if aangemeld or wachtlijst:
+                            events.append(event)
+
+                        else:
+                            voorlopig = dict(event)
+                            voorlopig["_tentative"] = True
+
+                            events.append(
+                                voorlopig
+                            )
+
+                            stats["voorlopig"] += 1
+
+                    else:
+                        # Geen event gevonden in SportBit:
+                        # maak een voorlopig agenda-item.
+                        events.append({
+                            "id": (
+                                f"{section}:"
+                                f"{doel.strftime('%Y%m%d%H%M')}"
+                            ),
+                            "start": doel.isoformat(),
+                            "eind": (
+                                doel + timedelta(hours=1)
+                            ).isoformat(),
+                            "titel": les,
+                            "aangemeld": False,
+                            "opWachtlijst": False,
+                            "_tentative": True,
+                        })
+
+                        stats["voorlopig"] += 1
+
+                # ---------------------------------------------
+                # Eén samenvatting per inschrijving
+                # ---------------------------------------------
+
+                if datums:
+                    periode = (
+                        f"{datums[0].strftime('%d-%m-%Y')} "
+                        f"t/m "
+                        f"{datums[-1].strftime('%d-%m-%Y')}"
+                    )
+                else:
+                    periode = "geen datums"
+
+                schrijf_log(
+                    f"[{section}] Agenda gepland | "
+                    f"Les: {les} | "
+                    f"Dag: {dag} {tijd.strftime('%H:%M')} | "
+                    f"Periode: {periode} | "
+                    f"Gepland: {stats['gepland']} | "
+                    f"SportBit gevonden: {stats['gevonden']} | "
+                    f"Voorlopig: {stats['voorlopig']} | "
+                    f"Aangemeld: {stats['aangemeld']} | "
+                    f"Wachtlijst: {stats['wachtlijst']}"
+                )
+
+            except Exception as error:
+                schrijf_log(
+                    f"[{section}] Agenda-feed fout: {error}",
+                    "exception",
+                )
+
+        inhoud = sportbit_calendar.maak_ics(
+            events
+        )
+
+        return Response(
+            inhoud,
+            mimetype="text/calendar",
+            headers={
+                "Content-Disposition":
+                    'inline; filename="sportbit.ics"',
+                "Cache-Control":
+                    "no-store, no-cache, must-revalidate",
+            },
+        )
+
+    except Exception as error:
+        schrijf_log(
+            f"Agenda-feed fout: {error}",
+            "exception",
+        )
+
+        return Response(
+            "Agenda-feed tijdelijk niet beschikbaar",
+            status=502,
+            mimetype="text/plain",
+        )
 
 
 # ============================================================
@@ -1744,44 +2013,83 @@ def lees_scheduler_status():
     return status
 
 
-def voer_automatische_inschrijvingen_uit(testmodus=False):
-    """Behandel iedere concrete doel-les maximaal één keer automatisch.
+def voer_automatische_inschrijvingen_uit():
+    """
+    Controleer automatische inschrijvingen voor concrete lessen
+    waarvan het registratievenster vandaag opent.
 
-    In testmodus worden controles uitgevoerd en wordt gelogd
-    wat de scheduler zou doen, zonder echt in te schrijven.
+    De bestaande functionaliteit voor handmatig overslaan,
+    persistent afgehandeld-state en opnieuw proberen blijft behouden.
     """
 
-    config = (
-        lees_config_parser()
-    )
+    config = lees_config_parser()
 
     secties = [
         section
         for section in config.sections()
-        if section.startswith(
-            "inschrijving_"
-        )
+        if section.startswith("inschrijving_")
     ]
 
-    schrijf_log(
-        "Automatische SportBit-scheduler gestart.",
-        onderwerp="scheduler",
-    )
+    # ---------------------------------------------------------
+    # Tijdstip van deze scheduler-run
+    # ---------------------------------------------------------
+
+    try:
+        _, _, timezone_naam = scheduler_instellingen()
+
+        timezone = ZoneInfo(timezone_naam)
+        nu = datetime.now(timezone)
+
+    except Exception:
+        nu = datetime.now()
+        timezone_naam = "onbekend"
+
+    vandaag = nu.date()
+
+    schrijf_log("")
+    schrijf_log("=" * 65)
+    schrijf_log("AUTOMATISCHE SPORTBIT-SCHEDULER")
+    schrijf_log("=" * 65)
 
     schrijf_log(
-        f"Modus: {'TESTMODUS' if testmodus else 'ECHT'}",
-        onderwerp="scheduler",
+        f"Scheduler-run gestart: "
+        f"{nu.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+    )
+
+    schrijf_log(f"Tijdzone: {timezone_naam}")
+    schrijf_log(f"Datum: {vandaag}")
+
+    schrijf_log(
+        f"Aantal geconfigureerde inschrijvingen: {len(secties)}"
     )
 
     if not secties:
         schrijf_log(
             "Geen inschrijvingen geconfigureerd.",
-            onderwerp="scheduler",
+            "warning",
         )
+
+        schrijf_log("Scheduler-run beëindigd.")
+        schrijf_log("=" * 65)
         return
 
+    # ---------------------------------------------------------
+    # Iedere automatische inschrijving controleren
+    # ---------------------------------------------------------
+
     for section in secties:
+
+        schrijf_log("")
+        schrijf_log("-" * 65)
+        schrijf_log(f"[{section}] START")
+        schrijf_log("-" * 65)
+
         try:
+
+            # -------------------------------------------------
+            # Configuratie
+            # -------------------------------------------------
+
             dag = config.get(
                 section,
                 "dag",
@@ -1799,87 +2107,206 @@ def voer_automatische_inschrijvingen_uit(testmodus=False):
                 "les",
             ).strip()
 
-            doel = volgende_datum(
+            schrijf_log(f"[{section}] Configuratie:")
+            schrijf_log(f"[{section}]   Dag  : {dag}")
+            schrijf_log(
+                f"[{section}]   Tijd : {tijd.strftime('%H:%M')}"
+            )
+            schrijf_log(f"[{section}]   Les  : {les}")
+
+            # -------------------------------------------------
+            # Twee concrete toekomstige lessen bepalen
+            # -------------------------------------------------
+
+            eerste = volgende_datum(
                 dag,
                 tijd,
             )
 
+            if eerste is None:
+                schrijf_log(
+                    f"[{section}] Geen eerste doelmoment gevonden.",
+                    "warning",
+                )
+                continue
+
+            tweede = eerste + timedelta(days=7)
+
+            schrijf_log(
+                f"[{section}] Eerstvolgende les: "
+                f"{eerste.strftime('%Y-%m-%d %H:%M')}"
+            )
+
+            schrijf_log(
+                f"[{section}] Daaropvolgende les: "
+                f"{tweede.strftime('%Y-%m-%d %H:%M')}"
+            )
+
+            # -------------------------------------------------
+            # Zoek de les waarvan registratie vandaag opent
+            # -------------------------------------------------
+
+            doel = None
+
+            for kandidaat in (eerste, tweede):
+
+                openingsdatum = (
+                    kandidaat.date()
+                    - timedelta(days=7)
+                )
+
+                schrijf_log(
+                    f"[{section}] Controle doel "
+                    f"{kandidaat.strftime('%Y-%m-%d %H:%M')}: "
+                    f"registratie opent op {openingsdatum}"
+                )
+
+                if openingsdatum == vandaag:
+                    doel = kandidaat
+
+                    schrijf_log(
+                        f"[{section}] REGISTRATIE OPENT VANDAAG "
+                        f"VOOR DEZE LES."
+                    )
+                    break
+
+            # -------------------------------------------------
+            # Geen les waarvan registratie vandaag opent
+            # -------------------------------------------------
+
             if doel is None:
                 schrijf_log(
-                    f"{section}: geen doelmoment gevonden.",
-                    onderwerp="scheduler",
-                    niveau="warning",
+                    f"[{section}] Geen concrete les gevonden "
+                    f"waarvan de registratie vandaag opent."
+                )
+
+                schrijf_log(
+                    f"[{section}] Geen actie nodig."
                 )
                 continue
 
             datum = doel.date()
 
+            schrijf_log(f"[{section}] CONCRETE DOEL-LES:")
+            schrijf_log(f"[{section}]   Datum : {datum}")
             schrijf_log(
-                f"{section}: doel-les "
-                f"{datum} "
-                f"{tijd.strftime('%H:%M')} "
-                f"({les})",
-                onderwerp="scheduler",
+                f"[{section}]   Tijd  : {doel.strftime('%H:%M')}"
             )
+            schrijf_log(f"[{section}]   Les   : {les}")
 
-            if is_handmatig_overgeslagen(
+            # -------------------------------------------------
+            # Handmatig overgeslagen?
+            # -------------------------------------------------
+
+            handmatig_overgeslagen = is_handmatig_overgeslagen(
                 section,
                 datum,
                 les,
                 tijd,
-            ):
+            )
+
+            schrijf_log(
+                f"[{section}] Handmatig overgeslagen: "
+                f"{'JA' if handmatig_overgeslagen else 'NEE'}"
+            )
+
+            if handmatig_overgeslagen:
                 schrijf_log(
-                    f"{section}: "
-                    f"{datum} "
-                    f"{tijd.strftime('%H:%M')} "
-                    "overgeslagen omdat deze "
-                    "doel-les handmatig is geannuleerd.",
-                    onderwerp="scheduler",
+                    f"[{section}] ACTIE: doel-les overslaan "
+                    f"omdat deze handmatig is geannuleerd."
                 )
                 continue
 
-            if is_afgehandeld(
+            # -------------------------------------------------
+            # Al automatisch afgehandeld?
+            # -------------------------------------------------
+
+            al_afgehandeld = is_afgehandeld(
                 section,
                 datum,
                 les,
                 tijd,
-            ):
+            )
+
+            schrijf_log(
+                f"[{section}] Automatisch afgehandeld: "
+                f"{'JA' if al_afgehandeld else 'NEE'}"
+            )
+
+            if al_afgehandeld:
                 schrijf_log(
-                    f"{section}: "
+                    f"[{section}] ACTIE: overslaan; "
                     f"{datum} "
-                    f"{tijd.strftime('%H:%M')} "
-                    "al automatisch afgehandeld.",
-                    onderwerp="scheduler",
+                    f"{doel.strftime('%H:%M')} "
+                    f"({les}) is al afgehandeld."
                 )
                 continue
 
-            # Testmodus: geen echte inschrijving uitvoeren.
-            if testmodus:
+            # -------------------------------------------------
+            # Controle registratie-opening
+            # -------------------------------------------------
+
+            schrijf_log(
+                f"[{section}] Controleer of registratie "
+                f"daadwerkelijk open is..."
+            )
+
+            if not inschrijving_open(datum):
                 schrijf_log(
-                    f"{section}: TESTMODUS — zou inschrijven "
-                    f"voor {datum} "
-                    f"{tijd.strftime('%H:%M')} "
-                    f"({les}), indien registratie open is.",
-                    onderwerp="scheduler",
+                    f"[{section}] Registratie is nog niet open."
+                )
+
+                schrijf_log(
+                    f"[{section}] Geen actie; volgende "
+                    f"scheduler-run probeert opnieuw."
                 )
                 continue
 
             schrijf_log(
-                f"Automatisch uitvoeren: "
-                f"{section} -> "
-                f"{datum} "
-                f"{tijd.strftime('%H:%M')} "
-                f"({les})",
-                onderwerp="scheduler",
+                f"[{section}] Registratie is OPEN."
             )
 
-            resultaat = (
-                voer_inschrijving_uit(
-                    section
-                )
+            # -------------------------------------------------
+            # Inschrijving uitvoeren voor concrete doel-les
+            # -------------------------------------------------
+
+            schrijf_log(
+                f"[{section}] ACTIE: inschrijving starten."
             )
+
+            schrijf_log(
+                f"[{section}] Doel: "
+                f"{datum} "
+                f"{doel.strftime('%H:%M')} · "
+                f"{les}"
+            )
+
+            resultaat = voer_inschrijving_uit(
+                section,
+                doel=doel,
+            )
+
+            schrijf_log(
+                f"[{section}] Resultaat "
+                f"voer_inschrijving_uit(): {resultaat!r}"
+            )
+
+            # -------------------------------------------------
+            # Succes
+            # -------------------------------------------------
 
             if resultaat:
+                schrijf_log(
+                    f"[{section}] SUCCES: inschrijving "
+                    f"uitgevoerd voor "
+                    f"{datum} {doel.strftime('%H:%M')}."
+                )
+
+                schrijf_log(
+                    f"[{section}] Concrete doel-les "
+                    f"markeren als afgehandeld..."
+                )
+
                 markeer_afgehandeld(
                     section,
                     datum,
@@ -1888,26 +2315,51 @@ def voer_automatische_inschrijvingen_uit(testmodus=False):
                 )
 
                 schrijf_log(
-                    f"{section}: succesvol uitgevoerd "
-                    "en gemarkeerd als afgehandeld.",
-                    onderwerp="scheduler",
+                    f"[{section}] State succesvol opgeslagen."
                 )
+
+                schrijf_log(
+                    f"[{section}] AUTOMATISCHE ACTIE VOLTOOID."
+                )
+
+            # -------------------------------------------------
+            # Niet uitgevoerd
+            # -------------------------------------------------
+
             else:
                 schrijf_log(
-                    f"{section}: niet uitgevoerd "
-                    "(momenteel niet open); "
-                    "wordt later opnieuw gecontroleerd.",
-                    onderwerp="scheduler",
+                    f"[{section}] NIET UITGEVOERD."
+                )
+
+                schrijf_log(
+                    f"[{section}] De doel-les is niet als "
+                    f"afgehandeld gemarkeerd."
+                )
+
+                schrijf_log(
+                    f"[{section}] Een volgende scheduler-run "
+                    f"kan opnieuw proberen."
                 )
 
         except Exception as error:
             schrijf_log(
-                f"{section}: fout tijdens "
-                f"automatische inschrijving: "
-                f"{error}",
-                onderwerp="scheduler",
-                niveau="error",
+                f"[{section}] FOUT tijdens automatische "
+                f"inschrijving: {error}",
+                "exception",
             )
+
+        finally:
+            schrijf_log(f"[{section}] EINDE")
+
+    # ---------------------------------------------------------
+    # Scheduler-run afgerond
+    # ---------------------------------------------------------
+
+    schrijf_log("")
+    schrijf_log("=" * 65)
+    schrijf_log("Scheduler-run beëindigd.")
+    schrijf_log("=" * 65)
+    schrijf_log("")
 
 
 def scheduler_loop():

@@ -386,6 +386,7 @@ from sportbit_dates import (
     DAGEN,
     parse_tijd,
     volgende_datum,
+    inschrijving_open,
 )
 
 from sportbit_events import (
